@@ -6,20 +6,29 @@
 
 import * as fc from 'fast-check';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { validateSpec, aggregateSpecs, fetchSpec, setupSwaggerDocs } from '../openapi.js';
+import {
+  validateSpec,
+  aggregateSpecs,
+  fetchSpec,
+  setupSwaggerDocs
+} from '../openapi.js';
 import axios from 'axios';
 import type * as Express from 'express';
 
 // Mock axios for unit tests
 vi.mock('axios');
-const mockedAxios = vi.mocked(axios);
+const mockedAxios = vi.mocked(axios, true);
 
 // Mock swagger-ui-express
 vi.mock('swagger-ui-express', () => ({
   default: {
     serve: vi.fn((req: any, res: any, next: any) => next()),
     setup: vi.fn(() => (req: any, res: any) => {
-      res.status(200).send('<!DOCTYPE html><html><head><title>Swagger UI</title></head><body><div id="swagger-ui"></div></body></html>');
+      res
+        .status(200)
+        .send(
+          '<!DOCTYPE html><html><head><title>Swagger UI</title></head><body><div id="swagger-ui"></div></body></html>'
+        );
     })
   }
 }));
@@ -176,7 +185,7 @@ describe('OpenAPI Validation and Error Handling Unit Tests', () => {
   describe('aggregateSpecs', () => {
     it('should handle empty array of specs', () => {
       const result = aggregateSpecs([]);
-      
+
       expect(result).toHaveProperty('openapi', '3.0.0');
       expect(result).toHaveProperty('info');
       expect(result).toHaveProperty('paths');
@@ -185,7 +194,7 @@ describe('OpenAPI Validation and Error Handling Unit Tests', () => {
 
     it('should handle array with only null specs', () => {
       const result = aggregateSpecs([null, null, null]);
-      
+
       expect(result).toHaveProperty('openapi', '3.0.0');
       expect(result).toHaveProperty('info');
       expect(result).toHaveProperty('paths');
@@ -209,7 +218,7 @@ describe('OpenAPI Validation and Error Handling Unit Tests', () => {
       };
 
       const result = aggregateSpecs([null, validSpec, null]);
-      
+
       expect(result.paths).toHaveProperty('/test');
     });
 
@@ -231,7 +240,7 @@ describe('OpenAPI Validation and Error Handling Unit Tests', () => {
       };
 
       const result = aggregateSpecs([spec1, spec2]);
-      
+
       expect(result.paths).toHaveProperty('/api1');
       expect(result.paths).toHaveProperty('/api2');
     });
@@ -260,7 +269,7 @@ describe('OpenAPI Validation and Error Handling Unit Tests', () => {
       };
 
       const result = aggregateSpecs([spec1, spec2]);
-      
+
       expect(result.components?.schemas).toHaveProperty('User');
       expect(result.components?.schemas).toHaveProperty('Product');
     });
@@ -289,7 +298,7 @@ describe('OpenAPI Validation and Error Handling Unit Tests', () => {
       };
 
       const result = aggregateSpecs([spec1, spec2]);
-      
+
       expect(result.components?.responses).toHaveProperty('NotFound');
       expect(result.components?.responses).toHaveProperty('Unauthorized');
     });
@@ -299,35 +308,38 @@ describe('OpenAPI Validation and Error Handling Unit Tests', () => {
         openapi: '3.0.0',
         info: { title: 'API 1', version: '1.0.0' },
         paths: {},
-        tags: [
-          { name: 'Users', description: 'User operations' }
-        ]
+        tags: [{ name: 'Users', description: 'User operations' }]
       };
 
       const spec2: OpenAPISpec = {
         openapi: '3.0.0',
         info: { title: 'API 2', version: '1.0.0' },
         paths: {},
-        tags: [
-          { name: 'Products', description: 'Product operations' }
-        ]
+        tags: [{ name: 'Products', description: 'Product operations' }]
       };
 
       const result = aggregateSpecs([spec1, spec2]);
-      
-      expect(result.tags).toContainEqual({ name: 'Users', description: 'User operations' });
-      expect(result.tags).toContainEqual({ name: 'Products', description: 'Product operations' });
+
+      expect(result.tags).toContainEqual({
+        name: 'Users',
+        description: 'User operations'
+      });
+      expect(result.tags).toContainEqual({
+        name: 'Products',
+        description: 'Product operations'
+      });
     });
 
     it('should include bearerAuth security scheme in aggregated spec', () => {
       const result = aggregateSpecs([]);
-      
+
       expect(result.components?.securitySchemes).toHaveProperty('bearerAuth');
       expect(result.components?.securitySchemes?.bearerAuth).toEqual({
         type: 'http',
         scheme: 'bearer',
         bearerFormat: 'JWT',
-        description: 'JWT access token obtained from /api/v2/authenticator/signin'
+        description:
+          'JWT access token obtained from /api/v2/authenticator/signin'
       });
     });
   });
@@ -404,11 +416,14 @@ describe('API Documentation Integration Tests', () => {
       await setupSwaggerDocs(mockApp);
 
       // Verify that a 404 handler was registered
-      expect(mockApp.use).toHaveBeenCalledWith('/api-docs', expect.any(Function));
+      expect(mockApp.use).toHaveBeenCalledWith(
+        '/api-docs',
+        expect.any(Function)
+      );
 
       // Get the handler function
       const handler = vi.mocked(mockApp.use).mock.calls[0][1] as Function;
-      
+
       // Create mock request and response
       const mockReq = {} as any;
       const mockRes = {
@@ -421,7 +436,9 @@ describe('API Documentation Integration Tests', () => {
 
       // Verify 404 response
       expect(mockRes.status).toHaveBeenCalledWith(404);
-      expect(mockRes.send).toHaveBeenCalledWith('API documentation is disabled');
+      expect(mockRes.send).toHaveBeenCalledWith(
+        'API documentation is disabled'
+      );
     });
   });
 
@@ -501,29 +518,33 @@ describe('API Documentation Integration Tests', () => {
       const aggregated = aggregateSpecs([
         apiSpec,
         null, // Failed service
-        null  // Another failed service
+        null // Another failed service
       ]);
 
       // Verify that aggregation succeeded with partial specs
       expect(aggregated).toHaveProperty('openapi', '3.0.0');
       expect(aggregated).toHaveProperty('info');
       expect(aggregated).toHaveProperty('paths');
-      
+
       // Verify the successful spec's paths are included
       expect(aggregated.paths).toHaveProperty('/api/v2/tenants');
-      
+
       // Verify the aggregated spec is still valid
-      expect(aggregated.components?.securitySchemes).toHaveProperty('bearerAuth');
+      expect(aggregated.components?.securitySchemes).toHaveProperty(
+        'bearerAuth'
+      );
     });
 
     it('should handle timeout errors when fetching specs', async () => {
       // Mock axios to timeout
-      mockedAxios.get.mockRejectedValue(new Error('timeout of 5000ms exceeded'));
+      mockedAxios.get.mockRejectedValue(
+        new Error('timeout of 5000ms exceeded')
+      );
 
       const result = await fetchSpec('http://slow-service:8000', 'SlowService');
 
       expect(result).toBeNull();
-      
+
       const { logger } = await import('@microrealestate/common');
       expect(logger.warn).toHaveBeenCalledWith(
         expect.stringContaining('Failed to fetch OpenAPI spec from SlowService')
@@ -538,10 +559,13 @@ describe('API Documentation Integration Tests', () => {
 
       mockedAxios.get.mockResolvedValue({ data: invalidSpec });
 
-      const result = await fetchSpec('http://invalid-service:8000', 'InvalidService');
+      const result = await fetchSpec(
+        'http://invalid-service:8000',
+        'InvalidService'
+      );
 
       expect(result).toBeNull();
-      
+
       const { logger } = await import('@microrealestate/common');
       expect(logger.error).toHaveBeenCalledWith(
         expect.stringContaining('Invalid spec from InvalidService')
@@ -586,7 +610,9 @@ describe('API Documentation Integration Tests', () => {
 
       // Verify the description includes authentication instructions
       expect(aggregated.info.description).toContain('Authentication');
-      expect(aggregated.info.description).toContain('/api/v2/authenticator/signin');
+      expect(aggregated.info.description).toContain(
+        '/api/v2/authenticator/signin'
+      );
       expect(aggregated.info.description).toContain('Bearer');
       expect(aggregated.info.description).toContain('Authorization');
     });
@@ -598,7 +624,8 @@ describe('API Documentation Integration Tests', () => {
         type: 'http',
         scheme: 'bearer',
         bearerFormat: 'JWT',
-        description: 'JWT access token obtained from /api/v2/authenticator/signin'
+        description:
+          'JWT access token obtained from /api/v2/authenticator/signin'
       });
     });
   });
@@ -630,7 +657,10 @@ describe('API Documentation Integration Tests', () => {
 
       mockedAxios.get.mockResolvedValue({ data: spec });
 
-      const result = await fetchSpec('http://test-service:8000', 'CustomServiceName');
+      const result = await fetchSpec(
+        'http://test-service:8000',
+        'CustomServiceName'
+      );
 
       expect(result?.info.title).toBe('CustomServiceName');
     });
@@ -638,7 +668,10 @@ describe('API Documentation Integration Tests', () => {
     it('should return null for network errors', async () => {
       mockedAxios.get.mockRejectedValue(new Error('Network error'));
 
-      const result = await fetchSpec('http://unreachable:8000', 'UnreachableService');
+      const result = await fetchSpec(
+        'http://unreachable:8000',
+        'UnreachableService'
+      );
 
       expect(result).toBeNull();
     });
@@ -686,9 +719,9 @@ describe('API Documentation Integration Tests', () => {
       await setupSwaggerDocs(mockApp);
 
       // Verify ResetService was not fetched
-      const resetServiceCalls = vi.mocked(mockedAxios.get).mock.calls.filter(
-        call => call[0].includes('resetservice')
-      );
+      const resetServiceCalls = vi
+        .mocked(mockedAxios.get)
+        .mock.calls.filter((call) => call[0].includes('resetservice'));
       expect(resetServiceCalls).toHaveLength(0);
     });
 
@@ -778,7 +811,7 @@ const arbOpenAPISpec = fc.record({
     version: fc.string({ minLength: 1 })
   }),
   paths: fc.dictionary(
-    fc.string({ minLength: 1 }).map(s => `/${s}`),
+    fc.string({ minLength: 1 }).map((s) => `/${s}`),
     arbPathItem,
     { minKeys: 1, maxKeys: 10 }
   ),
@@ -814,11 +847,13 @@ const arbOpenAPISpec = fc.record({
 });
 
 // Arbitrary generator for semantic version strings
-const arbSemanticVersion = fc.tuple(
-  fc.nat({ max: 99 }), // major
-  fc.nat({ max: 99 }), // minor
-  fc.nat({ max: 99 })  // patch
-).map(([major, minor, patch]) => `${major}.${minor}.${patch}`);
+const arbSemanticVersion = fc
+  .tuple(
+    fc.nat({ max: 99 }), // major
+    fc.nat({ max: 99 }), // minor
+    fc.nat({ max: 99 }) // patch
+  )
+  .map(([major, minor, patch]) => `${major}.${minor}.${patch}`);
 
 // Arbitrary generator for OpenAPI spec with version
 const arbOpenAPISpecWithVersion = fc.record({
@@ -828,7 +863,7 @@ const arbOpenAPISpecWithVersion = fc.record({
     version: arbSemanticVersion
   }),
   paths: fc.dictionary(
-    fc.string({ minLength: 1 }).map(s => `/${s}`),
+    fc.string({ minLength: 1 }).map((s) => `/${s}`),
     arbPathItem,
     { minKeys: 0, maxKeys: 5 }
   )
@@ -844,10 +879,10 @@ describe('OpenAPI Aggregation Property Tests', () => {
             const aggregated = aggregateSpecs(serviceSpecs);
 
             // For each service spec
-            serviceSpecs.forEach(spec => {
+            serviceSpecs.forEach((spec) => {
               if (spec && spec.paths) {
                 // All paths from service should be in aggregated spec
-                Object.keys(spec.paths).forEach(path => {
+                Object.keys(spec.paths).forEach((path) => {
                   expect(aggregated.paths?.[path]).toBeDefined();
                 });
               }
@@ -865,10 +900,12 @@ describe('OpenAPI Aggregation Property Tests', () => {
           (serviceSpecs) => {
             const aggregated = aggregateSpecs(serviceSpecs);
 
-            serviceSpecs.forEach(spec => {
+            serviceSpecs.forEach((spec) => {
               if (spec && spec.components?.schemas) {
-                Object.keys(spec.components.schemas).forEach(schemaName => {
-                  expect(aggregated.components?.schemas?.[schemaName]).toBeDefined();
+                Object.keys(spec.components.schemas).forEach((schemaName) => {
+                  expect(
+                    aggregated.components?.schemas?.[schemaName]
+                  ).toBeDefined();
                 });
               }
             });
@@ -885,11 +922,15 @@ describe('OpenAPI Aggregation Property Tests', () => {
           (serviceSpecs) => {
             const aggregated = aggregateSpecs(serviceSpecs);
 
-            serviceSpecs.forEach(spec => {
+            serviceSpecs.forEach((spec) => {
               if (spec && spec.components?.responses) {
-                Object.keys(spec.components.responses).forEach(responseName => {
-                  expect(aggregated.components?.responses?.[responseName]).toBeDefined();
-                });
+                Object.keys(spec.components.responses).forEach(
+                  (responseName) => {
+                    expect(
+                      aggregated.components?.responses?.[responseName]
+                    ).toBeDefined();
+                  }
+                );
               }
             });
           }
@@ -905,9 +946,9 @@ describe('OpenAPI Aggregation Property Tests', () => {
           (serviceSpecs) => {
             const aggregated = aggregateSpecs(serviceSpecs);
 
-            serviceSpecs.forEach(spec => {
+            serviceSpecs.forEach((spec) => {
               if (spec && spec.tags) {
-                spec.tags.forEach(tag => {
+                spec.tags.forEach((tag) => {
                   expect(aggregated.tags).toContainEqual(tag);
                 });
               }
@@ -921,7 +962,10 @@ describe('OpenAPI Aggregation Property Tests', () => {
     it('should handle null specs gracefully', () => {
       fc.assert(
         fc.property(
-          fc.array(fc.option(arbOpenAPISpec, { nil: null }), { minLength: 1, maxLength: 6 }),
+          fc.array(fc.option(arbOpenAPISpec, { nil: null }), {
+            minLength: 1,
+            maxLength: 6
+          }),
           (serviceSpecs) => {
             const aggregated = aggregateSpecs(serviceSpecs);
 
@@ -932,10 +976,10 @@ describe('OpenAPI Aggregation Property Tests', () => {
             expect(aggregated).toHaveProperty('components');
 
             // Only non-null specs should contribute
-            const validSpecs = serviceSpecs.filter(spec => spec !== null);
-            validSpecs.forEach(spec => {
+            const validSpecs = serviceSpecs.filter((spec) => spec !== null);
+            validSpecs.forEach((spec) => {
               if (spec && spec.paths) {
-                Object.keys(spec.paths).forEach(path => {
+                Object.keys(spec.paths).forEach((path) => {
                   expect(aggregated.paths?.[path]).toBeDefined();
                 });
               }
@@ -953,7 +997,7 @@ describe('OpenAPI Aggregation Property Tests', () => {
           (serviceSpecs) => {
             const aggregated = aggregateSpecs(serviceSpecs);
 
-            serviceSpecs.forEach(spec => {
+            serviceSpecs.forEach((spec) => {
               if (spec && spec.paths) {
                 Object.entries(spec.paths).forEach(([path, pathItem]) => {
                   expect(aggregated.paths?.[path]).toBeDefined();
@@ -983,9 +1027,10 @@ describe('OpenAPI Aggregation Property Tests', () => {
           fc.array(arbOpenAPISpecWithVersion, { minLength: 1, maxLength: 6 }),
           (serviceSpecs) => {
             // Semantic versioning regex: MAJOR.MINOR.PATCH with optional pre-release and build metadata
-            const semverRegex = /^\d+\.\d+\.\d+(-[a-zA-Z0-9.-]+)?(\+[a-zA-Z0-9.-]+)?$/;
+            const semverRegex =
+              /^\d+\.\d+\.\d+(-[a-zA-Z0-9.-]+)?(\+[a-zA-Z0-9.-]+)?$/;
 
-            serviceSpecs.forEach(spec => {
+            serviceSpecs.forEach((spec) => {
               if (spec && spec.info && spec.info.version) {
                 expect(spec.info.version).toMatch(semverRegex);
               }
@@ -1002,7 +1047,8 @@ describe('OpenAPI Aggregation Property Tests', () => {
           fc.array(arbOpenAPISpecWithVersion, { minLength: 1, maxLength: 6 }),
           (serviceSpecs) => {
             const aggregated = aggregateSpecs(serviceSpecs);
-            const semverRegex = /^\d+\.\d+\.\d+(-[a-zA-Z0-9.-]+)?(\+[a-zA-Z0-9.-]+)?$/;
+            const semverRegex =
+              /^\d+\.\d+\.\d+(-[a-zA-Z0-9.-]+)?(\+[a-zA-Z0-9.-]+)?$/;
 
             expect(aggregated.info.version).toMatch(semverRegex);
           }
@@ -1013,41 +1059,39 @@ describe('OpenAPI Aggregation Property Tests', () => {
 
     it('should parse version components correctly', () => {
       fc.assert(
-        fc.property(
-          arbSemanticVersion,
-          (version) => {
-            const parts = version.split('.');
-            
-            // Should have exactly 3 parts
-            expect(parts).toHaveLength(3);
-            
-            // Each part should be a valid number
-            parts.forEach(part => {
-              expect(Number.isNaN(parseInt(part, 10))).toBe(false);
-              expect(parseInt(part, 10)).toBeGreaterThanOrEqual(0);
-            });
-          }
-        ),
+        fc.property(arbSemanticVersion, (version) => {
+          const parts = version.split('.');
+
+          // Should have exactly 3 parts
+          expect(parts).toHaveLength(3);
+
+          // Each part should be a valid number
+          parts.forEach((part) => {
+            expect(Number.isNaN(parseInt(part, 10))).toBe(false);
+            expect(parseInt(part, 10)).toBeGreaterThanOrEqual(0);
+          });
+        }),
         { numRuns: 100 }
       );
     });
 
     it('should reject invalid version formats', () => {
       const invalidVersions = [
-        '1.0',           // Missing patch
-        '1',             // Missing minor and patch
-        'v1.0.0',        // Has 'v' prefix
-        '1.0.0.0',       // Too many parts
-        'a.b.c',         // Non-numeric
-        '1.0.0-',        // Invalid pre-release
-        '1.0.0+',        // Invalid build metadata
-        '',              // Empty
-        '1.0.0 beta',    // Space instead of hyphen
+        '1.0', // Missing patch
+        '1', // Missing minor and patch
+        'v1.0.0', // Has 'v' prefix
+        '1.0.0.0', // Too many parts
+        'a.b.c', // Non-numeric
+        '1.0.0-', // Invalid pre-release
+        '1.0.0+', // Invalid build metadata
+        '', // Empty
+        '1.0.0 beta' // Space instead of hyphen
       ];
 
-      const semverRegex = /^\d+\.\d+\.\d+(-[a-zA-Z0-9.-]+)?(\+[a-zA-Z0-9.-]+)?$/;
+      const semverRegex =
+        /^\d+\.\d+\.\d+(-[a-zA-Z0-9.-]+)?(\+[a-zA-Z0-9.-]+)?$/;
 
-      invalidVersions.forEach(version => {
+      invalidVersions.forEach((version) => {
         expect(version).not.toMatch(semverRegex);
       });
     });
@@ -1061,12 +1105,13 @@ describe('OpenAPI Aggregation Property Tests', () => {
         '1.0.0-x.7.z.92',
         '1.0.0+20130313144700',
         '1.0.0-beta+exp.sha.5114f85',
-        '1.0.0+21AF26D3-117B344092BD',
+        '1.0.0+21AF26D3-117B344092BD'
       ];
 
-      const semverRegex = /^\d+\.\d+\.\d+(-[a-zA-Z0-9.-]+)?(\+[a-zA-Z0-9.-]+)?$/;
+      const semverRegex =
+        /^\d+\.\d+\.\d+(-[a-zA-Z0-9.-]+)?(\+[a-zA-Z0-9.-]+)?$/;
 
-      validVersions.forEach(version => {
+      validVersions.forEach((version) => {
         expect(version).toMatch(semverRegex);
       });
     });
