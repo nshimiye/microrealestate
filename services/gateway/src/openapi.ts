@@ -49,6 +49,11 @@ export function validateSpec(spec: any, serviceName: string): boolean {
   return true;
 }
 
+   const getSepcsEndpoint = (endpoint: string) => {
+        const url = new URL(endpoint as string);
+        // return `${url.origin}/health`;
+        return `${url.origin}/openapi.json`;
+      };
 /**
  * Fetches OpenAPI specification from a service
  */
@@ -57,7 +62,7 @@ export async function fetchSpec(
   serviceName: string
 ): Promise<OpenAPISpec | null> {
   try {
-    const response = await axios.get(`${serviceUrl}/openapi.json`, {
+    const response = await axios.get(getSepcsEndpoint(serviceUrl), {
       timeout: 5000
     });
     
@@ -141,9 +146,18 @@ Most endpoints require authentication using JWT (JSON Web Token) Bearer tokens.
 
   // Merge all specifications
   validSpecs.forEach((spec) => {
-    // Merge paths
+    // Get the service's base URL from its servers array
+    const serviceBaseUrl = spec.servers?.[0]?.url || '';
+    
+    // Merge paths with service base URL prepended
     if (spec.paths && aggregated.paths) {
-      Object.assign(aggregated.paths, spec.paths);
+      Object.entries(spec.paths).forEach(([path, pathItem]) => {
+        // Construct full path: serviceBaseUrl + path
+        const fullPath = `${serviceBaseUrl}${path}`;
+        if (aggregated.paths) {
+          aggregated.paths[fullPath] = pathItem;
+        }
+      });
     }
 
     // Merge schemas
@@ -185,15 +199,17 @@ export async function setupSwaggerDocs(
   }
 
   try {
+
+ 
+
     // Fetch specifications from all services
     const serviceSpecs = await Promise.all([
       config.API_URL ? fetchSpec(config.API_URL, 'API Service') : Promise.resolve(null),
       config.TENANTAPI_URL ? fetchSpec(config.TENANTAPI_URL, 'TenantAPI Service') : Promise.resolve(null),
       config.AUTHENTICATOR_URL ? fetchSpec(config.AUTHENTICATOR_URL, 'Authenticator Service') : Promise.resolve(null),
       config.PDFGENERATOR_URL ? fetchSpec(config.PDFGENERATOR_URL, 'PDFGenerator Service') : Promise.resolve(null),
-      config.EMAILER_URL ? fetchSpec(config.EMAILER_URL, 'Emailer Service') : Promise.resolve(null),
-      // Only include ResetService in non-production environments
-      ...(config.PRODUCTION || !config.RESETSERVICE_URL ? [] : [fetchSpec(config.RESETSERVICE_URL, 'ResetService')])
+      config.EMAILER_URL ? fetchSpec((config.EMAILER_URL), 'Emailer Service') : Promise.resolve(null),
+      config.RESETSERVICE_URL ? fetchSpec((config.RESETSERVICE_URL), 'Reset Service') : Promise.resolve(null),
     ]);
 
     // Aggregate specifications

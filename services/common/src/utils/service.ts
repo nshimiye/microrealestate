@@ -170,7 +170,7 @@ export default class Service {
     await this.onStartUp?.(this.expressServer);
 
     // add error middleware
-    this.expressServer.use(Middlewares.errorHandler);
+    // this.expressServer.use(Middlewares.errorHandler);
     await this.startService();
   }
 

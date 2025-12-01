@@ -451,8 +451,9 @@ describe('API Documentation Integration Tests', () => {
       const apiSpec = {
         openapi: '3.0.0',
         info: { title: 'API Service', version: '1.0.0' },
+        servers: [{ url: '/api/v2', description: 'API Service' }],
         paths: {
-          '/api/v2/tenants': {
+          '/tenants': {
             get: {
               summary: 'Get tenants',
               responses: { '200': { description: 'Success' } }
@@ -464,8 +465,9 @@ describe('API Documentation Integration Tests', () => {
       const tenantApiSpec = {
         openapi: '3.0.0',
         info: { title: 'TenantAPI Service', version: '1.0.0' },
+        servers: [{ url: '/tenantapi', description: 'TenantAPI Service' }],
         paths: {
-          '/tenantapi/info': {
+          '/info': {
             get: {
               summary: 'Get tenant info',
               responses: { '200': { description: 'Success' } }
@@ -477,8 +479,9 @@ describe('API Documentation Integration Tests', () => {
       const authSpec = {
         openapi: '3.0.0',
         info: { title: 'Authenticator Service', version: '1.0.0' },
+        servers: [{ url: '/api/v2/authenticator', description: 'Authenticator Service' }],
         paths: {
-          '/api/v2/authenticator/signin': {
+          '/landlord/signin': {
             post: {
               summary: 'Sign in',
               responses: { '200': { description: 'Success' } }
@@ -490,10 +493,10 @@ describe('API Documentation Integration Tests', () => {
       // Test aggregation directly
       const aggregated = aggregateSpecs([apiSpec, tenantApiSpec, authSpec]);
 
-      // Verify all paths are included
+      // Verify all paths are included with service base URL prepended
       expect(aggregated.paths).toHaveProperty('/api/v2/tenants');
       expect(aggregated.paths).toHaveProperty('/tenantapi/info');
-      expect(aggregated.paths).toHaveProperty('/api/v2/authenticator/signin');
+      expect(aggregated.paths).toHaveProperty('/api/v2/authenticator/landlord/signin');
     });
 
     /**
@@ -810,6 +813,13 @@ const arbOpenAPISpec = fc.record({
     title: fc.string({ minLength: 1 }),
     version: fc.string({ minLength: 1 })
   }),
+  servers: fc.array(
+    fc.record({
+      url: fc.string({ minLength: 1 }).map((s) => `/${s}`),
+      description: fc.string()
+    }),
+    { minLength: 1, maxLength: 1 }
+  ),
   paths: fc.dictionary(
     fc.string({ minLength: 1 }).map((s) => `/${s}`),
     arbPathItem,
@@ -881,9 +891,11 @@ describe('OpenAPI Aggregation Property Tests', () => {
             // For each service spec
             serviceSpecs.forEach((spec) => {
               if (spec && spec.paths) {
-                // All paths from service should be in aggregated spec
+                const serviceBaseUrl = spec.servers?.[0]?.url || '';
+                // All paths from service should be in aggregated spec with base URL prepended
                 Object.keys(spec.paths).forEach((path) => {
-                  expect(aggregated.paths?.[path]).toBeDefined();
+                  const fullPath = `${serviceBaseUrl}${path}`;
+                  expect(aggregated.paths?.[fullPath]).toBeDefined();
                 });
               }
             });
@@ -979,8 +991,10 @@ describe('OpenAPI Aggregation Property Tests', () => {
             const validSpecs = serviceSpecs.filter((spec) => spec !== null);
             validSpecs.forEach((spec) => {
               if (spec && spec.paths) {
+                const serviceBaseUrl = spec.servers?.[0]?.url || '';
                 Object.keys(spec.paths).forEach((path) => {
-                  expect(aggregated.paths?.[path]).toBeDefined();
+                  const fullPath = `${serviceBaseUrl}${path}`;
+                  expect(aggregated.paths?.[fullPath]).toBeDefined();
                 });
               }
             });
@@ -999,11 +1013,13 @@ describe('OpenAPI Aggregation Property Tests', () => {
 
             serviceSpecs.forEach((spec) => {
               if (spec && spec.paths) {
+                const serviceBaseUrl = spec.servers?.[0]?.url || '';
                 Object.entries(spec.paths).forEach(([path, pathItem]) => {
-                  expect(aggregated.paths?.[path]).toBeDefined();
+                  const fullPath = `${serviceBaseUrl}${path}`;
+                  expect(aggregated.paths?.[fullPath]).toBeDefined();
                   // Verify the operation is preserved
                   if (pathItem.get) {
-                    expect(aggregated.paths?.[path]?.get).toBeDefined();
+                    expect(aggregated.paths?.[fullPath]?.get).toBeDefined();
                   }
                 });
               }
@@ -1012,6 +1028,130 @@ describe('OpenAPI Aggregation Property Tests', () => {
         ),
         { numRuns: 100 }
       );
+    });
+  });
+
+  describe('Property 8: Path aggregation correctness', () => {
+    /**
+     * Property-Based Test for Path Aggregation Correctness
+     * Feature: api-documentation, Property 8: Path aggregation correctness
+     * Validates: Requirements 11.1, 11.2, 11.3, 11.4, 11.5
+     */
+    it('should combine service base URL with endpoint paths correctly', () => {
+      fc.assert(
+        fc.property(
+          fc.array(arbOpenAPISpec, { minLength: 1, maxLength: 6 }),
+          (serviceSpecs) => {
+            const aggregated = aggregateSpecs(serviceSpecs);
+
+            serviceSpecs.forEach((spec) => {
+              if (spec && spec.paths && spec.servers) {
+                const serviceBaseUrl = spec.servers[0]?.url || '';
+                
+                Object.keys(spec.paths).forEach((path) => {
+                  // The aggregated spec should contain the full path (base URL + path)
+                  const fullPath = `${serviceBaseUrl}${path}`;
+                  expect(aggregated.paths?.[fullPath]).toBeDefined();
+                  
+                  // The original path without base URL should NOT exist
+                  if (serviceBaseUrl !== '') {
+                    expect(aggregated.paths?.[path]).toBeUndefined();
+                  }
+                });
+              }
+            });
+          }
+        ),
+        { numRuns: 100 }
+      );
+    });
+
+    it('should handle empty service base URLs correctly', () => {
+      const specWithoutBaseUrl = {
+        openapi: '3.0.0',
+        info: { title: 'Test API', version: '1.0.0' },
+        servers: [{ url: '', description: 'No base URL' }],
+        paths: {
+          '/test': {
+            get: {
+              summary: 'Test endpoint',
+              responses: { '200': { description: 'Success' } }
+            }
+          }
+        }
+      };
+
+      const aggregated = aggregateSpecs([specWithoutBaseUrl]);
+
+      // With empty base URL, path should remain as-is
+      expect(aggregated.paths).toHaveProperty('/test');
+    });
+
+    it('should correctly combine multiple service base URLs with their paths', () => {
+      const authSpec = {
+        openapi: '3.0.0',
+        info: { title: 'Auth', version: '1.0.0' },
+        servers: [{ url: '/api/v2/authenticator', description: 'Auth' }],
+        paths: {
+          '/landlord/signin': { post: { summary: 'Sign in', responses: {} } },
+          '/landlord/signup': { post: { summary: 'Sign up', responses: {} } }
+        }
+      };
+
+      const apiSpec = {
+        openapi: '3.0.0',
+        info: { title: 'API', version: '1.0.0' },
+        servers: [{ url: '/api/v2', description: 'API' }],
+        paths: {
+          '/tenants': { get: { summary: 'Get tenants', responses: {} } },
+          '/properties': { get: { summary: 'Get properties', responses: {} } }
+        }
+      };
+
+      const aggregated = aggregateSpecs([authSpec, apiSpec]);
+
+      // Verify authenticator paths are correctly prefixed
+      expect(aggregated.paths).toHaveProperty('/api/v2/authenticator/landlord/signin');
+      expect(aggregated.paths).toHaveProperty('/api/v2/authenticator/landlord/signup');
+      
+      // Verify API paths are correctly prefixed
+      expect(aggregated.paths).toHaveProperty('/api/v2/tenants');
+      expect(aggregated.paths).toHaveProperty('/api/v2/properties');
+      
+      // Verify original paths without base URL don't exist
+      expect(aggregated.paths).not.toHaveProperty('/landlord/signin');
+      expect(aggregated.paths).not.toHaveProperty('/tenants');
+    });
+
+    it('should preserve path operations when combining with base URL', () => {
+      const spec = {
+        openapi: '3.0.0',
+        info: { title: 'Test', version: '1.0.0' },
+        servers: [{ url: '/api/v2/test', description: 'Test' }],
+        paths: {
+          '/endpoint': {
+            get: {
+              summary: 'GET endpoint',
+              responses: { '200': { description: 'Success' } }
+            },
+            post: {
+              summary: 'POST endpoint',
+              responses: { '201': { description: 'Created' } }
+            }
+          }
+        }
+      };
+
+      const aggregated = aggregateSpecs([spec]);
+
+      // Verify the full path exists
+      expect(aggregated.paths).toHaveProperty('/api/v2/test/endpoint');
+      
+      // Verify both operations are preserved
+      expect(aggregated.paths?.['/api/v2/test/endpoint']).toHaveProperty('get');
+      expect(aggregated.paths?.['/api/v2/test/endpoint']).toHaveProperty('post');
+      expect(aggregated.paths?.['/api/v2/test/endpoint']?.get?.summary).toBe('GET endpoint');
+      expect(aggregated.paths?.['/api/v2/test/endpoint']?.post?.summary).toBe('POST endpoint');
     });
   });
 

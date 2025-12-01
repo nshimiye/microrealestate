@@ -140,3 +140,15 @@ This feature adds comprehensive OpenAPI/Swagger documentation for all MicroRealE
 3. WHEN searching THEN the system SHALL highlight matching results
 4. WHEN searching THEN the system SHALL support partial matches
 5. THE Swagger UI SHALL provide the built-in search functionality without custom implementation
+
+### Requirement 11
+
+**User Story:** As a developer, I want the "Try it out" feature in Swagger UI to use correct API paths, so that I can successfully test endpoints without manual URL adjustments.
+
+#### Acceptance Criteria
+
+1. WHEN a developer clicks "Try it out" on any endpoint THEN the system SHALL construct the full API path including the gateway prefix
+2. WHEN testing the authenticator signin endpoint THEN the system SHALL use the path `/api/v2/authenticator/landlord/signin` not `/landlord/signin`
+3. WHEN testing any API service endpoint THEN the system SHALL use the path `/api/v2/<service>/<endpoint>` format
+4. WHEN the OpenAPI specification is aggregated THEN the system SHALL preserve or correctly merge the server base URL with endpoint paths
+5. WHEN viewing any endpoint in Swagger UI THEN the displayed URL SHALL match the actual gateway routing configuration

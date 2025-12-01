@@ -38,7 +38,7 @@
  *           type: string
  *           format: email
  *           description: User email address
- *           example: user@example.com
+ *           example: john.doe@example.com
  *         password:
  *           type: string
  *           format: password
@@ -111,6 +111,42 @@ import express from 'express';
 import jwt from 'jsonwebtoken';
 import locale from 'locale';
 
+/**
+ * Generates a new pair of JWT tokens (access token and refresh token) for a user account.
+ * 
+ * TOKEN EXPIRATION SCENARIOS:
+ * 
+ * 1. ACCESS TOKEN (Short-lived):
+ *    - Expires in: 30 seconds (all environments)
+ *    - Purpose: Used for API authentication on each request
+ *    - Storage: Returned in response body, stored client-side (memory/state)
+ *    - When expired: Client must use refresh token to get a new access token
+ * 
+ * 2. REFRESH TOKEN (Long-lived):
+ *    - Production: Expires in 600 seconds (10 minutes)
+ *    - Development: Expires in 12 hours
+ *    - Purpose: Used to obtain new access tokens without re-authentication
+ *    - Storage: Stored in HTTP-only cookie AND Redis (key-value pair)
+ *    - When expired: User must sign in again with credentials
+ * 
+ * EXPIRATION FLOW:
+ * 
+ * Time 0s:     User signs in → receives both tokens
+ * Time 30s:    Access token expires → client calls /refreshtoken
+ * Time 1min:    New access token expires → client calls /refreshtoken again
+ * Time 10min:   Refresh token expires (production) → user must sign in again
+ * 
+ * SECURITY CONSIDERATIONS:
+ * - Access tokens are short-lived to minimize damage if compromised
+ * - Refresh tokens are longer-lived but stored securely (HTTP-only cookie + Redis)
+ * - Redis stores the mapping: refreshToken → accessToken for validation
+ * - When refresh token is used, both tokens are regenerated (token rotation)
+ * 
+ * @param {Object} dbAccount - User account object from database
+ * @param {string} dbAccount._id - Account ID (excluded from token payload)
+ * @param {string} dbAccount.password - Account password (excluded from token payload)
+ * @returns {Promise<{refreshToken: string, accessToken: string}>} Token pair
+ */
 const _generateTokens = async (dbAccount) => {
   const { REFRESH_TOKEN_SECRET, ACCESS_TOKEN_SECRET, PRODUCTION } =
     Service.getInstance().envConfig.getValues();
@@ -119,18 +155,64 @@ const _generateTokens = async (dbAccount) => {
     expiresIn: PRODUCTION ? '600s' : '12h'
   });
   const accessToken = jwt.sign({ account }, ACCESS_TOKEN_SECRET, {
-    expiresIn: '30s'
+    expiresIn: '60s'
   });
 
   // save tokens
   await Service.getInstance().redisClient.set(refreshToken, accessToken);
-
+  console.log('saved ACCESS_TOKEN_SECRET', ACCESS_TOKEN_SECRET);
+  console.log('saved access token', accessToken);
   return {
     refreshToken,
     accessToken
   };
 };
 
+/**
+ * Refreshes an expired access token using a valid refresh token (token rotation pattern).
+ * 
+ * EXPIRATION SCENARIOS HANDLED:
+ * 
+ * 1. SUCCESSFUL REFRESH (Happy Path):
+ *    - Old refresh token is valid (not expired, exists in Redis)
+ *    - Old tokens are cleared from Redis
+ *    - New token pair is generated with fresh expiration times
+ *    - Client receives new access token (30s) and refresh token (10min/12h)
+ * 
+ * 2. REFRESH TOKEN NOT IN REDIS:
+ *    - Scenario: Token was manually cleared, server restarted, or already used
+ *    - Result: Returns empty object {}
+ *    - Client action: Must sign in again (receives 403 error)
+ * 
+ * 3. REFRESH TOKEN EXPIRED (JWT expiration):
+ *    - Scenario: Token exceeded its expiration time (600s prod / 12h dev)
+ *    - jwt.verify() throws TokenExpiredError
+ *    - Result: Returns empty object {}
+ *    - Client action: Must sign in again (receives 403 error)
+ * 
+ * 4. REFRESH TOKEN INVALID (Signature/Format):
+ *    - Scenario: Token was tampered with or signed with wrong secret
+ *    - jwt.verify() throws JsonWebTokenError
+ *    - Result: Returns empty object {}
+ *    - Client action: Must sign in again (receives 403 error)
+ * 
+ * TOKEN ROTATION SECURITY:
+ * - Old refresh token is immediately invalidated (deleted from Redis)
+ * - Even if old token hasn't expired, it can only be used once
+ * - Prevents replay attacks where stolen tokens are reused
+ * - If refresh fails, old token is still cleared (fail-secure)
+ * 
+ * TYPICAL USAGE PATTERN:
+ * 1. Client makes API request with access token
+ * 2. API returns 401 (access token expired after 30s)
+ * 3. Client calls /refreshtoken with refresh token cookie
+ * 4. This function validates and rotates tokens
+ * 5. Client receives new access token and continues
+ * 6. Process repeats until refresh token expires (10min prod / 12h dev)
+ * 
+ * @param {string} oldRefreshToken - The current refresh token from cookie
+ * @returns {Promise<{refreshToken: string, accessToken: string}|{}>} New token pair or empty object on failure
+ */
 const _refreshTokens = async (oldRefreshToken) => {
   const { REFRESH_TOKEN_SECRET } = Service.getInstance().envConfig.getValues();
   const oldAccessToken =

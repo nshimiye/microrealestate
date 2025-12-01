@@ -37,7 +37,7 @@ const swaggerDefinition = {
 
 const options = {
   definition: swaggerDefinition,
-  apis: [join(__dirname, 'routes.js')]
+  apis: [join(__dirname, '../dist/routes.js')]
 };
 
 export const swaggerSpec = swaggerJsdoc(options);

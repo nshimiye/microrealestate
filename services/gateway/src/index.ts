@@ -15,11 +15,15 @@ import { setupSwaggerDocs } from './openapi.js';
 Main();
 
 async function onStartUp(application: Express.Application) {
+      const config = Service.getInstance().envConfig.getValues();
   exposeHealthCheck(application);
   exposeFrontends(application);
   configureCORS(application);
   exposeServices(application);
-  await setupSwaggerDocs(application);
+
+  if (!config.PRODUCTION) {
+    await setupSwaggerDocs(application);
+  }
 }
 
 async function Main() {

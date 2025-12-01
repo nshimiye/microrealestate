@@ -150,3 +150,21 @@
 
 - [x] 13. Checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
+
+- [x] 14. Fix incorrect API paths in Swagger UI "Try it out" feature
+  - Modify the `aggregateSpecs` function in gateway to prepend service base URLs to endpoint paths
+  - Update the aggregated spec's `servers` array to use gateway base URL (`/`)
+  - Ensure all paths in aggregated spec are absolute from gateway's perspective
+  - Test that signin endpoint uses `/api/v2/authenticator/landlord/signin` not `/landlord/signin`
+  - _Requirements: 11.1, 11.2, 11.3, 11.4, 11.5_
+
+- [x] 14.1 Write property test for path aggregation correctness
+  - **Property 8: Path aggregation correctness**
+  - **Validates: Requirements 11.1, 11.2, 11.3, 11.4, 11.5**
+
+- [x] 15. Final Checkpoint - Verify fix with manual testing
+  - Start all services and access /api-docs
+  - Use "Try it out" on authenticator signin endpoint
+  - Verify the request URL is `/api/v2/authenticator/landlord/signin`
+  - Test other endpoints to ensure paths are correct
+  - Ensure all tests pass, ask the user if questions arise.

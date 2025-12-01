@@ -554,6 +554,10 @@ rrectness Properties
 *For any* version string in the OpenAPI specification info.version field, it should match semantic versioning format (MAJOR.MINOR.PATCH).
 **Validates: Requirements 8.4**
 
+### Property 8: Path aggregation correctness
+*For any* service specification with a server base URL and endpoint paths, the aggregated specification should contain paths that combine the service base URL with the endpoint path (e.g., `/api/v2/authenticator` + `/landlord/signin` = `/api/v2/authenticator/landlord/signin`).
+**Validates: Requirements 11.1, 11.2, 11.3, 11.4, 11.5**
+
 ## Error Handling
 
 ### Service Unavailability
@@ -984,6 +988,69 @@ describe('API Documentation Integration', () => {
 2. **No Sensitive Data** - Ensure examples don't contain real credentials
 3. **Rate Limiting** - Consider rate limiting /api-docs endpoint
 4. **CORS** - Swagger UI respects existing CORS configuration
+
+## Known Issues and Fixes
+
+### Issue: Incorrect API Paths in Swagger UI "Try it out"
+
+**Problem:** When using the "Try it out" feature in Swagger UI, the generated API calls use incorrect paths. For example, the authenticator signin endpoint generates `http://localhost:8080/landlord/signin` instead of the correct `http://localhost:8080/api/v2/authenticator/landlord/signin`.
+
+**Root Cause:** The OpenAPI specification aggregation in the gateway does not properly handle the `servers` array from individual service specifications. When specs are merged, the server base URL (`/api/v2/authenticator`) is not being prepended to the endpoint paths (`/landlord/signin`).
+
+**Solution:** Modify the `aggregateSpecs` function in the gateway to:
+1. When merging paths from each service spec, prepend the service's server base URL to each path
+2. Set the aggregated spec's `servers` array to use the gateway's base URL (`/`)
+3. Ensure all paths in the aggregated spec are absolute paths from the gateway's perspective
+
+**Implementation:**
+```typescript
+function aggregateSpecs(specs: any[]) {
+  const validSpecs = specs.filter(spec => spec !== null);
+  
+  const aggregated = {
+    openapi: '3.0.0',
+    info: { /* ... */ },
+    servers: [
+      {
+        url: '/',
+        description: 'API Gateway'
+      }
+    ],
+    tags: [],
+    paths: {},
+    components: { /* ... */ }
+  };
+
+  validSpecs.forEach(spec => {
+    // Get the service's base URL from its servers array
+    const serviceBaseUrl = spec.servers?.[0]?.url || '';
+    
+    // Merge paths with service base URL prepended
+    if (spec.paths) {
+      Object.entries(spec.paths).forEach(([path, pathItem]) => {
+        // Construct full path: serviceBaseUrl + path
+        const fullPath = `${serviceBaseUrl}${path}`;
+        aggregated.paths[fullPath] = pathItem;
+      });
+    }
+    
+    // Merge schemas, responses, tags as before
+    if (spec.components?.schemas) {
+      Object.assign(aggregated.components.schemas, spec.components.schemas);
+    }
+    if (spec.components?.responses) {
+      Object.assign(aggregated.components.responses, spec.components.responses);
+    }
+    if (spec.tags) {
+      aggregated.tags.push(...spec.tags);
+    }
+  });
+
+  return aggregated;
+}
+```
+
+This ensures that when Swagger UI constructs API calls, it uses the full path from the gateway's perspective.
 
 ## Future Enhancements
 

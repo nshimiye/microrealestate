@@ -15,13 +15,14 @@ async function onStartUp(express) {
   if (!fs.existsSync(TEMPORARY_DIRECTORY)) {
     fs.mkdirSync(TEMPORARY_DIRECTORY);
   }
-  express.use(routes());
   
   // Expose OpenAPI specification
   express.get('/openapi.json', (req, res) => {
     res.setHeader('Content-Type', 'application/json');
     res.send(swaggerSpec);
   });
+
+  express.use(routes());
 }
 
 async function Main() {
