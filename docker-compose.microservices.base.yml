@@ -48,6 +48,7 @@ services:
       - DOMAIN_URL
       - CORS_ENABLED
       - TENANTAPI_URL
+      - ENABLE_API_DOCS
     ports:
       - '$GATEWAY_PORT:8080'
     networks:

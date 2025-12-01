@@ -39,7 +39,8 @@
     "locale": "0.1.0",
     "moment": "2.29.4",
     "nodemailer": "6.9.14",
-    "nodemailer-mailgun-transport": "2.1.5"
+    "nodemailer-mailgun-transport": "2.1.5",
+    "swagger-jsdoc": "6.2.8"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "7.15.0",

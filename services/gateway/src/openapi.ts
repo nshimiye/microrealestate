@@ -37,7 +37,7 @@ interface OpenAPISpec {
 /**
  * Validates the structure of an OpenAPI specification
  */
-function validateSpec(spec: any, serviceName: string): boolean {
+export function validateSpec(spec: any, serviceName: string): boolean {
   if (!spec || typeof spec !== 'object') {
     logger.error(`Invalid spec from ${serviceName}: not an object`);
     return false;
@@ -52,7 +52,7 @@ function validateSpec(spec: any, serviceName: string): boolean {
 /**
  * Fetches OpenAPI specification from a service
  */
-async function fetchSpec(
+export async function fetchSpec(
   serviceUrl: string,
   serviceName: string
 ): Promise<OpenAPISpec | null> {
@@ -79,7 +79,7 @@ async function fetchSpec(
 /**
  * Aggregates multiple OpenAPI specifications into one
  */
-function aggregateSpecs(specs: Array<OpenAPISpec | null>): OpenAPISpec {
+export function aggregateSpecs(specs: Array<OpenAPISpec | null>): OpenAPISpec {
   const validSpecs = specs.filter((spec): spec is OpenAPISpec => spec !== null);
 
   // Create base specification
@@ -88,7 +88,26 @@ function aggregateSpecs(specs: Array<OpenAPISpec | null>): OpenAPISpec {
     info: {
       title: 'MicroRealEstate API',
       version: '1.0.0',
-      description: 'Comprehensive API documentation for all MicroRealEstate services',
+      description: `Comprehensive API documentation for all MicroRealEstate services.
+
+## Authentication
+
+Most endpoints require authentication using JWT (JSON Web Token) Bearer tokens.
+
+### How to authenticate:
+
+1. **Obtain an access token**: Send a POST request to \`/api/v2/authenticator/signin\` with your email and password
+2. **Use the token**: Include the access token in the Authorization header of your requests:
+   \`\`\`
+   Authorization: Bearer <your_access_token>
+   \`\`\`
+3. **Try it out**: Click the "Authorize" button (🔓) at the top of this page to enter your token and test authenticated endpoints
+
+### Token Management:
+
+- Access tokens expire after a period of time
+- Use the \`/api/v2/authenticator/refresh\` endpoint to obtain a new access token using your refresh token
+- Logout using \`/api/v2/authenticator/logout\` to invalidate your tokens`,
       contact: {
         name: 'MicroRealEstate',
         url: 'https://github.com/microrealestate/microrealestate'

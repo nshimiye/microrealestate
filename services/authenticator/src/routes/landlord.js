@@ -1,3 +1,76 @@
+/**
+ * @openapi
+ * components:
+ *   schemas:
+ *     SignInRequest:
+ *       type: object
+ *       required:
+ *         - email
+ *         - password
+ *       properties:
+ *         email:
+ *           type: string
+ *           format: email
+ *           description: User email address
+ *           example: user@example.com
+ *         password:
+ *           type: string
+ *           format: password
+ *           description: User password
+ *           example: mySecurePassword123
+ *     SignInResponse:
+ *       type: object
+ *       properties:
+ *         accessToken:
+ *           type: string
+ *           description: JWT access token (expires in 30 seconds)
+ *           example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+ *     RefreshTokenResponse:
+ *       type: object
+ *       properties:
+ *         accessToken:
+ *           type: string
+ *           description: New JWT access token
+ *           example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+ *     ErrorResponse:
+ *       type: object
+ *       properties:
+ *         error:
+ *           type: string
+ *           description: Error message
+ *         statusCode:
+ *           type: integer
+ *           description: HTTP status code
+ *   responses:
+ *     UnauthorizedError:
+ *       description: Invalid credentials or expired token
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ErrorResponse'
+ *           example:
+ *             error: invalid credentials
+ *             statusCode: 401
+ *     ForbiddenError:
+ *       description: Access forbidden
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ErrorResponse'
+ *           example:
+ *             error: invalid credentials
+ *             statusCode: 403
+ *     ValidationError:
+ *       description: Missing or invalid fields
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ErrorResponse'
+ *           example:
+ *             error: missing fields
+ *             statusCode: 422
+ */
+
 import {
   Collections,
   logger,
@@ -234,6 +307,38 @@ export default function () {
     );
   }
 
+  /**
+   * @openapi
+   * /landlord/signin:
+   *   post:
+   *     summary: Sign in to the landlord portal
+   *     description: Authenticates a user with email and password, returns an access token and sets a refresh token cookie
+   *     tags:
+   *       - Authentication
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             $ref: '#/components/schemas/SignInRequest'
+   *     responses:
+   *       200:
+   *         description: Successful authentication
+   *         headers:
+   *           Set-Cookie:
+   *             description: HTTP-only cookie containing refresh token
+   *             schema:
+   *               type: string
+   *               example: refreshToken=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...; HttpOnly; Secure; SameSite=Strict
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/SignInResponse'
+   *       401:
+   *         $ref: '#/components/responses/UnauthorizedError'
+   *       422:
+   *         $ref: '#/components/responses/ValidationError'
+   */
   landlordRouter.post(
     '/signin',
     Middlewares.asyncWrapper(async (req, res) => {
@@ -296,6 +401,32 @@ export default function () {
     })
   );
 
+  /**
+   * @openapi
+   * /landlord/refreshtoken:
+   *   post:
+   *     summary: Refresh access token
+   *     description: Exchanges a valid refresh token (from cookie) for a new access token and refresh token
+   *     tags:
+   *       - Authentication
+   *     security:
+   *       - cookieAuth: []
+   *     responses:
+   *       200:
+   *         description: Successfully refreshed tokens
+   *         headers:
+   *           Set-Cookie:
+   *             description: HTTP-only cookie containing new refresh token
+   *             schema:
+   *               type: string
+   *               example: refreshToken=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...; HttpOnly; Secure; SameSite=Strict
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/RefreshTokenResponse'
+   *       403:
+   *         $ref: '#/components/responses/ForbiddenError'
+   */
   landlordRouter.post(
     '/refreshtoken',
     Middlewares.asyncWrapper(async (req, res) => {
@@ -320,6 +451,28 @@ export default function () {
     })
   );
 
+  /**
+   * @openapi
+   * /landlord/signout:
+   *   delete:
+   *     summary: Sign out from the landlord portal
+   *     description: Invalidates the refresh token and clears the authentication cookie
+   *     tags:
+   *       - Authentication
+   *     security:
+   *       - cookieAuth: []
+   *     responses:
+   *       202:
+   *         description: Accepted (no refresh token present)
+   *       204:
+   *         description: Successfully signed out
+   *         headers:
+   *           Set-Cookie:
+   *             description: Clears the refresh token cookie
+   *             schema:
+   *               type: string
+   *               example: refreshToken=; Max-Age=0
+   */
   landlordRouter.delete(
     '/signout',
     Middlewares.asyncWrapper(async (req, res) => {

@@ -5,6 +5,7 @@ import migratedb from '../scripts/migration.js';
 import path from 'path';
 import { restoreDB } from '../scripts/dbbackup.js';
 import routes from './routes.js';
+import { swaggerSpec } from './openapi.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -24,6 +25,12 @@ async function onStartUp(application) {
 
   // migrate db to the new models
   await migratedb();
+
+  // Expose OpenAPI spec endpoint
+  application.get('/openapi.json', (req, res) => {
+    res.setHeader('Content-Type', 'application/json');
+    res.send(swaggerSpec);
+  });
 
   application.use(routes());
 }

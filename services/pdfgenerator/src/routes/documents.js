@@ -224,23 +224,156 @@ function _resolveTemplates(element, templateValues) {
   return element;
 }
 
+/**
+ * @openapi
+ * components:
+ *   schemas:
+ *     Document:
+ *       type: object
+ *       properties:
+ *         _id:
+ *           type: string
+ *           description: Unique document identifier
+ *         realmId:
+ *           type: string
+ *           description: Organization identifier
+ *         tenantId:
+ *           type: string
+ *           description: Tenant identifier
+ *         leaseId:
+ *           type: string
+ *           description: Lease identifier
+ *         templateId:
+ *           type: string
+ *           description: Template identifier used to generate the document
+ *         type:
+ *           type: string
+ *           enum: [text, file]
+ *           description: Document type (text for generated documents, file for uploaded files)
+ *         name:
+ *           type: string
+ *           description: Document name
+ *         description:
+ *           type: string
+ *           description: Document description
+ *         contents:
+ *           type: object
+ *           description: Document contents in TipTap JSON format (for text type)
+ *         html:
+ *           type: string
+ *           description: Document HTML representation (for text type)
+ *         mimeType:
+ *           type: string
+ *           description: MIME type of the file (for file type)
+ *         url:
+ *           type: string
+ *           description: File URL or path (for file type)
+ *         versionId:
+ *           type: string
+ *           description: S3 version ID (for file type)
+ *         expiryDate:
+ *           type: string
+ *           format: date
+ *           description: Document expiry date (for file type)
+ *     DocumentUploadResponse:
+ *       type: object
+ *       properties:
+ *         fileName:
+ *           type: string
+ *           description: Uploaded file name
+ *         key:
+ *           type: string
+ *           description: S3 key or file path
+ *   responses:
+ *     UnauthorizedError:
+ *       description: Access token is missing or invalid
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               error:
+ *                 type: string
+ *                 example: Unauthorized
+ *     NotFoundError:
+ *       description: Resource not found
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               error:
+ *                 type: string
+ *                 example: document not found
+ *     ValidationError:
+ *       description: Invalid request parameters
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               error:
+ *                 type: string
+ *                 example: missing fields
+ *     InternalServerError:
+ *       description: Internal server error
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               error:
+ *                 type: string
+ *                 example: Internal server error
+ */
 export default function () {
-  /**
-   * routes:
-   * GET    /documents                         -> JSON
-   * GET    /documents/:id                     -> JSON | pdf | image file
-   * GET    /documents/:document/:id/:term     -> pdf file
-   * POST   /documents/upload                  -> JSON
-   * (input: FormData with pdf or image file)
-   * POST   /documents                         -> JSON
-   * (input: Document model)
-   * PATCH  /documents                         -> JSON
-   * input: Document model
-   * DELETE /documents/:ids
-   */
   const { UPLOADS_DIRECTORY } = Service.getInstance().envConfig.getValues();
   const documentsApi = express.Router();
 
+  /**
+   * @openapi
+   * /documents/{document}/{id}/{term}:
+   *   get:
+   *     summary: Generate PDF document for a specific term
+   *     description: Generates and downloads a PDF document for a tenant's specific term
+   *     tags:
+   *       - Documents
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: document
+   *         required: true
+   *         schema:
+   *           type: string
+   *         description: Document type (e.g., invoice, contract, notice)
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: string
+   *         description: Tenant or entity identifier
+   *       - in: path
+   *         name: term
+   *         required: true
+   *         schema:
+   *           type: string
+   *         description: Term identifier (e.g., month/year)
+   *     responses:
+   *       200:
+   *         description: PDF file download
+   *         content:
+   *           application/pdf:
+   *             schema:
+   *               type: string
+   *               format: binary
+   *       401:
+   *         $ref: '#/components/responses/UnauthorizedError'
+   *       404:
+   *         $ref: '#/components/responses/NotFoundError'
+   *       500:
+   *         $ref: '#/components/responses/InternalServerError'
+   */
   documentsApi.get(
     '/:document/:id/:term',
     Middlewares.asyncWrapper(async (req, res) => {
@@ -254,6 +387,32 @@ export default function () {
     })
   );
 
+  /**
+   * @openapi
+   * /documents:
+   *   get:
+   *     summary: Get all documents
+   *     description: Retrieves all documents for the authenticated organization
+   *     tags:
+   *       - Documents
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: List of documents
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: array
+   *               items:
+   *                 $ref: '#/components/schemas/Document'
+   *       401:
+   *         $ref: '#/components/responses/UnauthorizedError'
+   *       404:
+   *         $ref: '#/components/responses/NotFoundError'
+   *       500:
+   *         $ref: '#/components/responses/InternalServerError'
+   */
   documentsApi.get(
     '/',
     Middlewares.asyncWrapper(async (req, res) => {
@@ -270,6 +429,47 @@ export default function () {
     })
   );
 
+  /**
+   * @openapi
+   * /documents/{id}:
+   *   get:
+   *     summary: Get document by ID
+   *     description: Retrieves a specific document by ID, returns JSON for text documents or file download for file documents
+   *     tags:
+   *       - Documents
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: string
+   *         description: Document identifier
+   *     responses:
+   *       200:
+   *         description: Document details or file download
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/Document'
+   *           application/pdf:
+   *             schema:
+   *               type: string
+   *               format: binary
+   *           image/*:
+   *             schema:
+   *               type: string
+   *               format: binary
+   *       401:
+   *         $ref: '#/components/responses/UnauthorizedError'
+   *       404:
+   *         $ref: '#/components/responses/NotFoundError'
+   *       422:
+   *         $ref: '#/components/responses/ValidationError'
+   *       500:
+   *         $ref: '#/components/responses/InternalServerError'
+   */
   documentsApi.get(
     '/:id',
     Middlewares.asyncWrapper(async (req, res) => {
@@ -340,6 +540,49 @@ export default function () {
     })
   );
 
+  /**
+   * @openapi
+   * /documents/upload:
+   *   post:
+   *     summary: Upload a document file
+   *     description: Uploads a PDF or image file to the system (file system or S3)
+   *     tags:
+   *       - Documents
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         multipart/form-data:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - file
+   *               - fileName
+   *               - s3Dir
+   *             properties:
+   *               file:
+   *                 type: string
+   *                 format: binary
+   *                 description: File to upload (PDF or image)
+   *               fileName:
+   *                 type: string
+   *                 description: Name for the uploaded file
+   *               s3Dir:
+   *                 type: string
+   *                 description: S3 directory path
+   *     responses:
+   *       201:
+   *         description: File uploaded successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/DocumentUploadResponse'
+   *       401:
+   *         $ref: '#/components/responses/UnauthorizedError'
+   *       500:
+   *         $ref: '#/components/responses/InternalServerError'
+   */
   documentsApi.post(
     '/upload',
     uploadMiddleware(),
@@ -371,6 +614,74 @@ export default function () {
     })
   );
 
+  /**
+   * @openapi
+   * /documents:
+   *   post:
+   *     summary: Create a new document
+   *     description: Creates a new document from a template or as a file descriptor
+   *     tags:
+   *       - Documents
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - tenantId
+   *               - leaseId
+   *             properties:
+   *               tenantId:
+   *                 type: string
+   *                 description: Tenant identifier
+   *               leaseId:
+   *                 type: string
+   *                 description: Lease identifier
+   *               templateId:
+   *                 type: string
+   *                 description: Template identifier to use for generation
+   *               type:
+   *                 type: string
+   *                 enum: [text, file]
+   *                 description: Document type
+   *               name:
+   *                 type: string
+   *                 description: Document name
+   *               description:
+   *                 type: string
+   *                 description: Document description
+   *               mimeType:
+   *                 type: string
+   *                 description: MIME type (for file type)
+   *               url:
+   *                 type: string
+   *                 description: File URL (for file type)
+   *               versionId:
+   *                 type: string
+   *                 description: S3 version ID (for file type)
+   *               expiryDate:
+   *                 type: string
+   *                 format: date
+   *                 description: Expiry date (for file type)
+   *     responses:
+   *       201:
+   *         description: Document created successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/Document'
+   *       401:
+   *         $ref: '#/components/responses/UnauthorizedError'
+   *       404:
+   *         $ref: '#/components/responses/NotFoundError'
+   *       422:
+   *         $ref: '#/components/responses/ValidationError'
+   *       500:
+   *         $ref: '#/components/responses/InternalServerError'
+   */
   documentsApi.post(
     '/',
     Middlewares.asyncWrapper(async (req, res) => {
@@ -436,6 +747,52 @@ export default function () {
     })
   );
 
+  /**
+   * @openapi
+   * /documents:
+   *   patch:
+   *     summary: Update a document
+   *     description: Updates an existing text document (file documents cannot be modified)
+   *     tags:
+   *       - Documents
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             allOf:
+   *               - $ref: '#/components/schemas/Document'
+   *               - type: object
+   *                 required:
+   *                   - _id
+   *     responses:
+   *       201:
+   *         description: Document updated successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/Document'
+   *       401:
+   *         $ref: '#/components/responses/UnauthorizedError'
+   *       404:
+   *         $ref: '#/components/responses/NotFoundError'
+   *       405:
+   *         description: Document type cannot be modified
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 error:
+   *                   type: string
+   *                   example: document cannot be modified
+   *       422:
+   *         $ref: '#/components/responses/ValidationError'
+   *       500:
+   *         $ref: '#/components/responses/InternalServerError'
+   */
   documentsApi.patch(
     '/',
     Middlewares.asyncWrapper(async (req, res) => {
@@ -473,6 +830,34 @@ export default function () {
     })
   );
 
+  /**
+   * @openapi
+   * /documents/{ids}:
+   *   delete:
+   *     summary: Delete documents
+   *     description: Deletes one or more documents by their IDs (comma-separated)
+   *     tags:
+   *       - Documents
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: ids
+   *         required: true
+   *         schema:
+   *           type: string
+   *         description: Comma-separated list of document IDs
+   *         example: "507f1f77bcf86cd799439011,507f191e810c19729de860ea"
+   *     responses:
+   *       204:
+   *         description: Documents deleted successfully
+   *       401:
+   *         $ref: '#/components/responses/UnauthorizedError'
+   *       404:
+   *         $ref: '#/components/responses/NotFoundError'
+   *       500:
+   *         $ref: '#/components/responses/InternalServerError'
+   */
   documentsApi.delete(
     '/:ids',
     Middlewares.asyncWrapper(async (req, res) => {

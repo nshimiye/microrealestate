@@ -1,5 +1,6 @@
 import { EnvironmentConfig, logger, Service } from '@microrealestate/common';
 import routes from './routes/index.js';
+import { swaggerSpec } from './openapi.js';
 
 Main();
 function split(thing) {
@@ -40,6 +41,13 @@ function printRoutes(app, path = []) {
 
 async function onStartUp(express) {
   express.use(routes());
+  
+  // Expose OpenAPI specification
+  express.get('/openapi.json', (req, res) => {
+    res.setHeader('Content-Type', 'application/json');
+    res.send(swaggerSpec);
+  });
+  
   console.log(express._router.stack.map((l) => l.name));
   // printRoutes(express, []);
 }

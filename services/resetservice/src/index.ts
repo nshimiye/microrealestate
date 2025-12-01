@@ -1,11 +1,18 @@
 import * as Express from 'express';
 import { EnvironmentConfig, logger, Service } from '@microrealestate/common';
 import routes from './routes.js';
+import { swaggerSpec } from './openapi.js';
 
 Main();
 
 async function onStartUp(express: Express.Application) {
   express.use(routes);
+  
+  // Expose OpenAPI specification
+  express.get('/openapi.json', (req, res) => {
+    res.setHeader('Content-Type', 'application/json');
+    res.send(swaggerSpec);
+  });
 }
 
 async function Main() {

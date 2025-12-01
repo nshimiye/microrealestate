@@ -27,7 +27,8 @@
     "format": "prettier --write '**/*.{js,jsx,ts,tsx,json,css}'"
   },
   "dependencies": {
-    "@microrealestate/common": "*"
+    "@microrealestate/common": "*",
+    "swagger-jsdoc": "^6.2.8"
   },
   "devDependencies": {
     "@microrealestate/types": "*",

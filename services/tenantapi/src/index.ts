@@ -6,10 +6,17 @@ import {
   Service
 } from '@microrealestate/common';
 import routes from './routes.js';
+import { swaggerSpec } from './openapi.js';
 
 Main();
 
 async function onStartUp(application: Express.Application) {
+  // Expose OpenAPI specification endpoint (no auth required)
+  application.get('/openapi.json', (req, res) => {
+    res.setHeader('Content-Type', 'application/json');
+    res.send(swaggerSpec);
+  });
+
   application.use(
     Middlewares.needAccessToken(
       Service.getInstance().envConfig.getValues().ACCESS_TOKEN_SECRET

@@ -28,10 +28,12 @@
   },
   "dependencies": {
     "@microrealestate/common": "*",
-    "moment": "2.29.4"
+    "moment": "2.29.4",
+    "swagger-jsdoc": "^6.2.8"
   },
   "devDependencies": {
     "@microrealestate/types": "*",
+    "@types/swagger-jsdoc": "^6.0.4",
     "@typescript-eslint/eslint-plugin": "7.15.0",
     "@typescript-eslint/parser": "7.15.0",
     "eslint": "8.57.0",

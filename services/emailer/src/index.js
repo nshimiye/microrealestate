@@ -4,6 +4,7 @@ import fs from 'fs';
 import i18n from 'i18n';
 import path from 'path';
 import routes from './routes.js';
+import { swaggerSpec } from './openapi.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -15,6 +16,12 @@ async function onStartUp(express) {
     fs.mkdirSync(TEMPORARY_DIRECTORY);
   }
   express.use(routes());
+  
+  // Expose OpenAPI specification
+  express.get('/openapi.json', (req, res) => {
+    res.setHeader('Content-Type', 'application/json');
+    res.send(swaggerSpec);
+  });
 }
 
 async function Main() {
