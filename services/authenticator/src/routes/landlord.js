@@ -2,6 +2,32 @@
  * @openapi
  * components:
  *   schemas:
+ *     SignUpRequest:
+ *       type: object
+ *       required:
+ *         - firstname
+ *         - lastname
+ *         - email
+ *         - password
+ *       properties:
+ *         firstname:
+ *           type: string
+ *           description: User's first name
+ *           example: John
+ *         lastname:
+ *           type: string
+ *           description: User's last name
+ *           example: Doe
+ *         email:
+ *           type: string
+ *           format: email
+ *           description: User email address
+ *           example: john.doe@example.com
+ *         password:
+ *           type: string
+ *           format: password
+ *           description: User password
+ *           example: mySecurePassword123
  *     SignInRequest:
  *       type: object
  *       required:
@@ -277,7 +303,27 @@ export default function () {
     locale(['fr-FR', 'en-US', 'pt-BR', 'de-DE', 'es-CO'], 'en-US')
   );
 
-  if (SIGNUP) {
+  // if (SIGNUP) {
+    /**
+     * @openapi
+     * /landlord/signup:
+     *   post:
+     *     summary: Sign up for a new landlord account
+     *     description: Creates a new landlord account with the provided user information. Returns 201 even if account exists to prevent account enumeration.
+     *     tags:
+     *       - Authentication
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             $ref: '#/components/schemas/SignUpRequest'
+     *     responses:
+     *       201:
+     *         description: Account created successfully (or already exists)
+     *       422:
+     *         $ref: '#/components/responses/ValidationError'
+     */
     landlordRouter.post(
       '/signup',
       Middlewares.asyncWrapper(async (req, res) => {
@@ -305,7 +351,7 @@ export default function () {
         res.sendStatus(201);
       })
     );
-  }
+  // }
 
   /**
    * @openapi

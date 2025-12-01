@@ -3,6 +3,7 @@ import routes from './routes/index.js';
 import { swaggerSpec } from './openapi.js';
 
 Main();
+
 function split(thing) {
   if (typeof thing === 'string') {
     return thing.split('/');
