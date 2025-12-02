@@ -646,4 +646,47 @@ describe('OpenAPI Documentation Property Tests', () => {
       });
     });
   });
+
+  describe('Reusable parameters', () => {
+    it('should have organizationIdHeader parameter defined in components', () => {
+      expect(swaggerSpec.components).toHaveProperty('parameters');
+      expect(swaggerSpec.components.parameters).toHaveProperty('organizationIdHeader');
+      
+      const orgIdParam = swaggerSpec.components.parameters.organizationIdHeader;
+      expect(orgIdParam.in).toBe('header');
+      expect(orgIdParam.name).toBe('organizationId');
+      expect(orgIdParam.required).toBe(true);
+      expect(orgIdParam.schema.type).toBe('string');
+      expect(orgIdParam.description).toBeDefined();
+    });
+
+    it('should use organizationIdHeader parameter reference in dashboard endpoint', () => {
+      const dashboardPath = swaggerSpec.paths['/dashboard'];
+      expect(dashboardPath).toBeDefined();
+      expect(dashboardPath.get).toBeDefined();
+      expect(dashboardPath.get.parameters).toBeDefined();
+      
+      const hasOrgIdParam = dashboardPath.get.parameters.some(
+        param => param.$ref === '#/components/parameters/organizationIdHeader'
+      );
+      expect(hasOrgIdParam).toBe(true);
+    });
+
+    it('should use organizationIdHeader parameter reference in leases endpoints', () => {
+      const leasesPath = swaggerSpec.paths['/leases'];
+      expect(leasesPath).toBeDefined();
+      
+      // GET /leases
+      expect(leasesPath.get.parameters).toBeDefined();
+      expect(leasesPath.get.parameters.some(
+        param => param.$ref === '#/components/parameters/organizationIdHeader'
+      )).toBe(true);
+      
+      // POST /leases
+      expect(leasesPath.post.parameters).toBeDefined();
+      expect(leasesPath.post.parameters.some(
+        param => param.$ref === '#/components/parameters/organizationIdHeader'
+      )).toBe(true);
+    });
+  });
 });

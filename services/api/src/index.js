@@ -27,13 +27,10 @@ async function onStartUp(application) {
   await migratedb();
 
   // Expose OpenAPI spec endpoint
-    console.log('hi there');
   application.get('/openapi.json', (req, res) => {
-    console.log('hi there');
     res.setHeader('Content-Type', 'application/json');
     res.send(swaggerSpec);
   });
-  application.get('/test', (req, res) => res.send("okok"))
   application.use(routes());
 }
 

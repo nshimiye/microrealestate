@@ -36,6 +36,9 @@ const swaggerDefinition = {
         description:
           'JWT access token obtained from /api/v2/authenticator/landlord/signin'
       }
+    },
+    parameters: {
+      
     }
   }
 };

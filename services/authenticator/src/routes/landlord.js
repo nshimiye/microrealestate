@@ -155,7 +155,7 @@ const _generateTokens = async (dbAccount) => {
     expiresIn: PRODUCTION ? '600s' : '12h'
   });
   const accessToken = jwt.sign({ account }, ACCESS_TOKEN_SECRET, {
-    expiresIn: '60s'
+    expiresIn: PRODUCTION ? '30s' : '1h'
   });
 
   // save tokens

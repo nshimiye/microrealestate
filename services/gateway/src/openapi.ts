@@ -25,6 +25,7 @@ interface OpenAPISpec {
   paths?: Record<string, any>;
   components?: {
     schemas?: Record<string, any>;
+    parameters?: Record<string, any>;
     responses?: Record<string, any>;
     securitySchemes?: Record<string, any>;
   };
@@ -140,7 +141,8 @@ Most endpoints require authentication using JWT (JSON Web Token) Bearer tokens.
         }
       },
       schemas: {},
-      responses: {}
+      responses: {},
+      parameters: {}
     }
   };
 
@@ -163,6 +165,10 @@ Most endpoints require authentication using JWT (JSON Web Token) Bearer tokens.
     // Merge schemas
     if (spec.components?.schemas && aggregated.components?.schemas) {
       Object.assign(aggregated.components.schemas, spec.components.schemas);
+    }
+    
+    if (spec.components?.parameters && aggregated.components?.parameters) {
+      Object.assign(aggregated.components.parameters, spec.components.parameters);
     }
 
     // Merge responses
@@ -204,9 +210,9 @@ export async function setupSwaggerDocs(
 
     // Fetch specifications from all services
     const serviceSpecs = await Promise.all([
+      config.AUTHENTICATOR_URL ? fetchSpec(config.AUTHENTICATOR_URL, 'Authenticator Service') : Promise.resolve(null),
       config.API_URL ? fetchSpec(config.API_URL, 'API Service') : Promise.resolve(null),
       config.TENANTAPI_URL ? fetchSpec(config.TENANTAPI_URL, 'TenantAPI Service') : Promise.resolve(null),
-      config.AUTHENTICATOR_URL ? fetchSpec(config.AUTHENTICATOR_URL, 'Authenticator Service') : Promise.resolve(null),
       config.PDFGENERATOR_URL ? fetchSpec(config.PDFGENERATOR_URL, 'PDFGenerator Service') : Promise.resolve(null),
       config.EMAILER_URL ? fetchSpec((config.EMAILER_URL), 'Emailer Service') : Promise.resolve(null),
       config.RESETSERVICE_URL ? fetchSpec((config.RESETSERVICE_URL), 'Reset Service') : Promise.resolve(null),

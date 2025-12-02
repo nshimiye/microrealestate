@@ -1,6 +1,14 @@
 /**
  * @openapi
  * components:
+ *   parameters:
+ *     organizationIdHeader:
+ *       name: organizationId
+ *       in: header
+ *       required: true
+ *       schema:
+ *         type: string
+ *       description: Organization ID to scope the request
  *   schemas:
  *     Realm:
  *       type: object
@@ -421,6 +429,22 @@ export default function routes() {
    *         application/json:
    *           schema:
    *             $ref: '#/components/schemas/Realm'
+   *           example:
+   *             name: "Marcellin"
+   *             locale: "en"
+   *             currency: "USD"
+   *             isCompany: "false"
+   *             legalRepresentative: ""
+   *             legalStructure: ""
+   *             company: ""
+   *             ein: ""
+   *             dos: ""
+   *             capital: ""
+   *             members:
+   *               - name: "John Doe"
+   *                 email: "john.doe@example.com"
+   *                 role: "administrator"
+   *                 registered: true
    *     responses:
    *       201:
    *         description: Realm created successfully
@@ -491,6 +515,8 @@ export default function routes() {
    *       - Dashboard
    *     security:
    *       - bearerAuth: []
+   *     parameters:
+   *       - $ref: '#/components/parameters/organizationIdHeader'
    *     responses:
    *       200:
    *         description: Successful response
@@ -518,6 +544,8 @@ export default function routes() {
    *       - Leases
    *     security:
    *       - bearerAuth: []
+   *     parameters:
+   *       - $ref: '#/components/parameters/organizationIdHeader'
    *     responses:
    *       200:
    *         description: Successful response
@@ -545,6 +573,7 @@ export default function routes() {
    *     security:
    *       - bearerAuth: []
    *     parameters:
+   *       - $ref: '#/components/parameters/organizationIdHeader'
    *       - in: path
    *         name: id
    *         required: true
@@ -577,6 +606,8 @@ export default function routes() {
    *       - Leases
    *     security:
    *       - bearerAuth: []
+   *     parameters:
+   *       - $ref: '#/components/parameters/organizationIdHeader'
    *     requestBody:
    *       required: true
    *       content:
@@ -610,6 +641,7 @@ export default function routes() {
    *     security:
    *       - bearerAuth: []
    *     parameters:
+   *       - $ref: '#/components/parameters/organizationIdHeader'
    *       - in: path
    *         name: id
    *         required: true
@@ -651,6 +683,7 @@ export default function routes() {
    *     security:
    *       - bearerAuth: []
    *     parameters:
+   *       - $ref: '#/components/parameters/organizationIdHeader'
    *       - in: path
    *         name: ids
    *         required: true
@@ -1383,6 +1416,7 @@ export default function routes() {
 
   const apiRouter = express.Router();
   apiRouter.use('/api/v2', router);
+console.log('hi');
 
   return apiRouter;
 }
