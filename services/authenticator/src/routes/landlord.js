@@ -98,7 +98,7 @@
  */
 
 import {
-  Collections,
+  DataAccess,
   logger,
   Middlewares,
   Service,
@@ -160,8 +160,6 @@ const _generateTokens = async (dbAccount) => {
 
   // save tokens
   await Service.getInstance().redisClient.set(refreshToken, accessToken);
-  console.log('saved ACCESS_TOKEN_SECRET', ACCESS_TOKEN_SECRET);
-  console.log('saved access token', accessToken);
   return {
     refreshToken,
     accessToken
@@ -249,7 +247,7 @@ const _applicationSignIn = Middlewares.asyncWrapper(async (req, res) => {
     Service.getInstance().envConfig.getValues();
   const { clientId, clientSecret } = req.body;
   if (
-    [clientId, clientSecret].map((el) => el.trim()).some((el) => !!el === false)
+    [clientId, clientSecret].map((el) => (el||'').trim()).some((el) => !!el === false)
   ) {
     logger.error('M2M login failed some fields are missing');
     throw new ServiceError('missing fields', 422);
@@ -291,9 +289,8 @@ const _applicationSignIn = Middlewares.asyncWrapper(async (req, res) => {
   }
 
   // find the client details within the realm
-  const realm = (
-    await Collections.Realm.findOne({ _id: organizationId })
-  )?.toObject();
+  const realmRepository = DataAccess.getRealmRepository();
+  const realm = await realmRepository.findById(organizationId);
   if (!realm) {
     logger.info(
       `login failed for application ${clientId}@${organizationId}: realm not found`
@@ -338,14 +335,13 @@ const _userSignIn = Middlewares.asyncWrapper(async (req, res) => {
   const { TOKEN_COOKIE_ATTRIBUTES } =
     Service.getInstance().envConfig.getValues();
   const { email, password } = req.body;
-  if ([email, password].map((el) => el.trim()).some((el) => !!el === false)) {
+  if ([email, password].map((el) => (el||'').trim()).some((el) => !!el === false)) {
     logger.error('login failed some fields are missing');
     throw new ServiceError('missing fields', 422);
   }
 
-  const account = await Collections.Account.findOne({
-    email: email.toLowerCase()
-  }).lean();
+  const accountRepository = DataAccess.getAccountRepository();
+  const account = await accountRepository.findByEmail(email);
 
   if (!account) {
     logger.info(`login failed for ${email} account not found`);
@@ -361,7 +357,7 @@ const _userSignIn = Middlewares.asyncWrapper(async (req, res) => {
   const { refreshToken, accessToken } = await _generateTokens(account);
 
   logger.debug(
-    `create a new refresh token ${refreshToken} for domain ${req.hostname}`
+    `create a new refresh token ..... for domain ${req.hostname}`
   );
   res.cookie('refreshToken', refreshToken, TOKEN_COOKIE_ATTRIBUTES);
   res.json({
@@ -412,19 +408,18 @@ export default function () {
         const { firstname, lastname, email, password } = req.body;
         if (
           [firstname, lastname, email, password]
-            .map((el) => el.trim())
+            .map((el) => el && el.trim())
             .some((el) => !!el === false)
         ) {
           throw new ServiceError('missing fields', 422);
         }
-        const existingAccount = await Collections.Account.findOne({
-          email: email.toLowerCase()
-        });
+        const accountRepository = DataAccess.getAccountRepository();
+        const existingAccount = await accountRepository.findByEmail(email);
         if (existingAccount) {
           // status code 200 to avoid account enumeration
           return res.sendStatus(201);
         }
-        await Collections.Account.create({
+        await accountRepository.create({
           firstname,
           lastname,
           email,
@@ -479,7 +474,7 @@ export default function () {
       }
 
       if (req.body.clientId) {
-        return await _applicationSignIn(req, res);
+        return _applicationSignIn(req, res);
       }
     })
   );
@@ -625,9 +620,9 @@ export default function () {
         throw new ServiceError('missing fields', 422);
       }
       // check if user exists
-      const account = await Collections.Account.findOne({
-        email: email.toLowerCase()
-      });
+      const accountRepository = DataAccess.getAccountRepository();
+      const account = await accountRepository.findByEmail(email);
+      
       if (account) {
         // generate reset token valid for one hour
         const token = jwt.sign({ email }, RESET_TOKEN_SECRET, {
@@ -662,7 +657,7 @@ export default function () {
       const { resetToken, password } = req.body;
       if (
         [resetToken, password]
-          .map((el) => el.trim())
+          .map((el) => (el||'').trim())
           .some((el) => !!el === false)
       ) {
         throw new ServiceError('missing fields', 422);
@@ -681,11 +676,11 @@ export default function () {
         throw new ServiceError(error, 403);
       }
 
-      const account = await Collections.Account.findOne({
-        email: email.toLowerCase()
-      });
-      account.password = password;
-      await account.save();
+      const accountRepository = DataAccess.getAccountRepository();
+      const account = await accountRepository.updatePassword(email, password);
+      if (!account) {
+        throw new ServiceError('invalid credentials', 403);
+      }
 
       res.sendStatus(200);
     })

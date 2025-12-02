@@ -76,9 +76,6 @@ export function needAccessToken(
     if (req.headers.authorization) {
       accessToken = req.headers.authorization.split(' ')[1];
     }
-    
-  console.log('used accessTokenSecret', accessTokenSecret);
-  console.log('used access token', accessToken);
 
     // tenant api sends accessToken in the sessionToken cookie
     if (!req.headers.authorization && req.cookies && req.cookies.sessionToken) {

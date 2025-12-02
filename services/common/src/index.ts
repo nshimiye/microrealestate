@@ -6,5 +6,9 @@ export * as Middlewares from './utils/middlewares.js';
 export { default as MongoClient } from './utils/mongoclient.js';
 export * as URLUtils from './utils/url.js';
 export * as Collections from './collections/index.js';
+export * as DataAccess from './dataAccess/index.js';
 export { default as logger } from './utils/logger.js';
 export { default as ServiceError } from './utils/serviceerror.js';
+
+// for testing purposes
+export * as TestUtils from './testutils/testSetup.js';

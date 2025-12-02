@@ -1,5 +1,5 @@
 import {
-  Collections,
+  DataAccess,
   Crypto,
   logger,
   ServiceError
@@ -58,7 +58,8 @@ function _escapeSecrets(realm) {
 }
 
 export async function add(req, res) {
-  const newRealm = new Collections.Realm(req.body);
+  const realmRepository = DataAccess.getRealmRepository();
+  const newRealm = { ...req.body };
 
   _hasRequiredFields(newRealm);
   _isNameAlreadyTaken(newRealm, req.realms);
@@ -93,10 +94,14 @@ export async function add(req, res) {
     );
   }
 
-  res.json(_escapeSecrets(await newRealm.save()));
+  const createdRealm = await realmRepository.create(newRealm);
+  res.json(_escapeSecrets(createdRealm));
 }
 
 export async function update(req, res) {
+  const realmRepository = DataAccess.getRealmRepository();
+  const accountRepository = DataAccess.getAccountRepository();
+
   const gmailAppPasswordUpdated =
     !!req.body.thirdParties?.gmail?.appPasswordUpdated;
   const smtpPasswordUpdated = !!req.body.thirdParties?.smtp?.passwordUpdated;
@@ -122,10 +127,10 @@ export async function update(req, res) {
   }
 
   // retrieve the document from mongo & update it
-  const previousRealm = await Collections.Realm.findOne({
+  const previousRealm = await realmRepository.findOne({
     _id: req.body._id
   });
-  const updatedRealm = { ...previousRealm.toObject(), ...req.body };
+  const updatedRealm = { ...previousRealm, ...req.body };
 
   _hasRequiredFields(updatedRealm);
   if (
@@ -190,7 +195,7 @@ export async function update(req, res) {
     }
   }
 
-  const dbAccounts = await Collections.Account.find().lean();
+  const dbAccounts = await accountRepository.findAll();
   const usernameMap = dbAccounts.reduce(
     (acc, { email, firstname, lastname }) => {
       acc[email] = `${firstname} ${lastname}`;
@@ -219,8 +224,8 @@ export async function update(req, res) {
     return app;
   });
 
-  previousRealm.set(updatedRealm);
-  res.json(_escapeSecrets(await previousRealm.save()));
+  const savedRealm = await realmRepository.update(req.body._id, updatedRealm);
+  res.json(_escapeSecrets(savedRealm));
 }
 
 export function one(req, res) {

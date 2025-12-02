@@ -60,7 +60,7 @@ async function Main() {
     await service.startUp();
   } catch (err) {
     logger.error(err);
-    service.shutdown(1);
+    service.shutDown(1);
   }
 }
 
