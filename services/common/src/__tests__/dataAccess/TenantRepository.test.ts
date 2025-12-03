@@ -763,6 +763,236 @@ describe('TenantRepository', () => {
     }, 35000);
   });
 
+  describe('Property 14: Plain object returns for new methods', () => {
+    it('should return plain objects without Mongoose methods for create, findByIds, and findAll', async () => {
+      // Feature: api-occupant-data-access-layer, Property 1: Plain object returns
+      // Validates: Requirements 3.8
+
+      await fc.assert(
+        fc.asyncProperty(
+          tenantDataArbitrary,
+          async (tenantData) => {
+            // Clear database before each property test iteration
+            await clearTestDB();
+
+            // Test create method
+            const created = await tenantRepository.create(tenantData);
+            expect((created as any).save).toBeUndefined();
+            expect((created as any).$isNew).toBeUndefined();
+            expect((created as any).toObject).toBeUndefined();
+
+            // Test findByIds method
+            const findByIdsResults = await tenantRepository.findByIds(
+              [created._id.toString()],
+              tenantData.realmId
+            );
+            for (const result of findByIdsResults) {
+              expect((result as any).save).toBeUndefined();
+              expect((result as any).$isNew).toBeUndefined();
+              expect((result as any).toObject).toBeUndefined();
+            }
+
+            // Test findAll method
+            const findAllResults = await tenantRepository.findAll(tenantData.realmId);
+            for (const result of findAllResults) {
+              expect((result as any).save).toBeUndefined();
+              expect((result as any).$isNew).toBeUndefined();
+              expect((result as any).toObject).toBeUndefined();
+            }
+          }
+        ),
+        { numRuns: 100, timeout: 30000 }
+      );
+    }, 35000);
+  });
+
+  describe('Property 15: Tenant creation persistence', () => {
+    it('should persist created tenants so they can be retrieved by subsequent queries', async () => {
+      // Feature: api-occupant-data-access-layer, Property 2: Tenant creation persistence
+      // Validates: Requirements 3.1
+
+      await fc.assert(
+        fc.asyncProperty(
+          tenantDataArbitrary,
+          async (tenantData) => {
+            // Clear database before each property test iteration
+            await clearTestDB();
+
+            // Create a tenant
+            const created = await tenantRepository.create(tenantData);
+
+            // Verify it has an ID
+            expect(created._id).toBeDefined();
+
+            // Retrieve by ID
+            const foundById = await tenantRepository.findById(created._id.toString());
+            expect(foundById).toBeDefined();
+            expect(foundById!.name).toBe(tenantData.name);
+            expect(foundById!.realmId).toBe(tenantData.realmId);
+
+            // Retrieve by findByIds
+            const foundByIds = await tenantRepository.findByIds(
+              [created._id.toString()],
+              tenantData.realmId
+            );
+            expect(foundByIds).toHaveLength(1);
+            expect(foundByIds[0].name).toBe(tenantData.name);
+
+            // Retrieve by findAll
+            const foundAll = await tenantRepository.findAll(tenantData.realmId);
+            expect(foundAll.length).toBeGreaterThanOrEqual(1);
+            const matchingTenant = foundAll.find(t => t._id.toString() === created._id.toString());
+            expect(matchingTenant).toBeDefined();
+            expect(matchingTenant!.name).toBe(tenantData.name);
+          }
+        ),
+        { numRuns: 100, timeout: 30000 }
+      );
+    }, 35000);
+  });
+
+  describe('Property 16: Tenant update persistence', () => {
+    it('should persist updates so they can be retrieved by subsequent queries', async () => {
+      // Feature: api-occupant-data-access-layer, Property 3: Tenant update persistence
+      // Validates: Requirements 3.2
+
+      await fc.assert(
+        fc.asyncProperty(
+          tenantDataArbitrary,
+          fc.string({ minLength: 1, maxLength: 100 }).filter(s => s.trim().length > 0),
+          async (tenantData, newName) => {
+            // Clear database before each property test iteration
+            await clearTestDB();
+
+            // Create a tenant
+            const created = await tenantRepository.create(tenantData);
+
+            // Update the tenant
+            const modifiedCount = await tenantRepository.update(
+              created._id.toString(),
+              tenantData.realmId,
+              { name: newName }
+            );
+
+            // Should have modified exactly one document
+            expect(modifiedCount).toBe(1);
+
+            // Retrieve and verify the update persisted
+            const foundById = await tenantRepository.findById(created._id.toString());
+            expect(foundById).toBeDefined();
+            expect(foundById!.name).toBe(newName);
+            expect(foundById!.realmId).toBe(tenantData.realmId);
+
+            // Verify via findByIds
+            const foundByIds = await tenantRepository.findByIds(
+              [created._id.toString()],
+              tenantData.realmId
+            );
+            expect(foundByIds).toHaveLength(1);
+            expect(foundByIds[0].name).toBe(newName);
+
+            // Verify via findAll
+            const foundAll = await tenantRepository.findAll(tenantData.realmId);
+            const matchingTenant = foundAll.find(t => t._id.toString() === created._id.toString());
+            expect(matchingTenant).toBeDefined();
+            expect(matchingTenant!.name).toBe(newName);
+          }
+        ),
+        { numRuns: 100, timeout: 30000 }
+      );
+    }, 35000);
+  });
+
+  describe('Property 17: Realm-scoped queries', () => {
+    it('should return only tenants from the specified realm for all query methods', async () => {
+      // Feature: api-occupant-data-access-layer, Property 4: Realm-scoped queries
+      // Validates: Requirements 1.2, 3.5
+
+      await fc.assert(
+        fc.asyncProperty(
+          fc.string({ minLength: 1, maxLength: 50 }),
+          fc.string({ minLength: 1, maxLength: 50 }),
+          fc.array(
+            fc.record({
+              name: fc.string({ minLength: 1, maxLength: 100 }).filter(s => s.trim().length > 0),
+              contacts: fc.constant([] as any)
+            }),
+            { minLength: 2, maxLength: 4 }
+          ),
+          async (targetRealmId, otherRealmId, tenants) => {
+            // Ensure realms are different
+            fc.pre(targetRealmId !== otherRealmId);
+
+            // Clear database before each property test iteration
+            await clearTestDB();
+
+            // Create tenants in target realm
+            const targetTenantIds: string[] = [];
+            for (const tenant of tenants) {
+              const created = await tenantRepository.create({
+                realmId: targetRealmId,
+                ...tenant
+              });
+              targetTenantIds.push(created._id.toString());
+            }
+
+            // Create tenants in other realm
+            for (const tenant of tenants) {
+              await tenantRepository.create({
+                realmId: otherRealmId,
+                name: tenant.name + ' Other',
+                contacts: []
+              });
+            }
+
+            // Test findByIds - should only return target realm tenants
+            const findByIdsResults = await tenantRepository.findByIds(
+              targetTenantIds,
+              targetRealmId
+            );
+            expect(findByIdsResults).toHaveLength(targetTenantIds.length);
+            for (const result of findByIdsResults) {
+              expect(result.realmId).toBe(targetRealmId);
+            }
+
+            // Test findAll - should only return target realm tenants
+            const findAllResults = await tenantRepository.findAll(targetRealmId);
+            expect(findAllResults.length).toBeGreaterThanOrEqual(targetTenantIds.length);
+            for (const result of findAllResults) {
+              expect(result.realmId).toBe(targetRealmId);
+            }
+
+            // Test update - should only update target realm tenant
+            const updateCount = await tenantRepository.update(
+              targetTenantIds[0],
+              targetRealmId,
+              { name: 'Updated Name' }
+            );
+            expect(updateCount).toBe(1);
+
+            // Verify update didn't affect other realm
+            const otherRealmTenants = await tenantRepository.findAll(otherRealmId);
+            for (const tenant of otherRealmTenants) {
+              expect(tenant.name).not.toBe('Updated Name');
+            }
+
+            // Test deleteMany - should only delete target realm tenants
+            const deleteCount = await tenantRepository.deleteMany(
+              [targetTenantIds[0]],
+              targetRealmId
+            );
+            expect(deleteCount).toBe(1);
+
+            // Verify deletion didn't affect other realm
+            const otherRealmTenantsAfterDelete = await tenantRepository.findAll(otherRealmId);
+            expect(otherRealmTenantsAfterDelete.length).toBe(tenants.length);
+          }
+        ),
+        { numRuns: 100, timeout: 30000 }
+      );
+    }, 35000);
+  });
+
   // ============================================================================
   // Unit Tests
   // ============================================================================
@@ -1544,6 +1774,470 @@ describe('TenantRepository', () => {
 
       await expect(
         tenantRepository.findByPropertyIds(['507f1f77bcf86cd799439011'], null as any)
+      ).rejects.toThrow('Realm ID must be a non-empty string');
+    });
+  });
+
+  describe('create', () => {
+    it('should create a new tenant with valid data', async () => {
+      const tenantData = {
+        realmId: 'realm1',
+        name: 'New Tenant',
+        contacts: [
+          {
+            contact: 'John Doe',
+            phone: '123-456-7890',
+            email: 'john@example.com'
+          }
+        ]
+      };
+
+      const created = await tenantRepository.create(tenantData);
+
+      expect(created).toBeDefined();
+      expect(created.name).toBe('New Tenant');
+      expect(created.realmId).toBe('realm1');
+      expect(created._id).toBeDefined();
+      expect(created.contacts).toHaveLength(1);
+    });
+
+    it('should return plain object', async () => {
+      const tenantData = {
+        realmId: 'realm1',
+        name: 'Test Tenant',
+        contacts: []
+      };
+
+      const created = await tenantRepository.create(tenantData);
+
+      expect((created as any).save).toBeUndefined();
+      expect((created as any).$isNew).toBeUndefined();
+      expect((created as any).toObject).toBeUndefined();
+    });
+
+    it('should throw error for missing realmId', async () => {
+      await expect(
+        tenantRepository.create({ name: 'Test' } as any)
+      ).rejects.toThrow('Tenant data must include realmId');
+    });
+
+    it('should throw error for invalid tenant data', async () => {
+      await expect(
+        tenantRepository.create(null as any)
+      ).rejects.toThrow('Tenant data must be an object');
+
+      await expect(
+        tenantRepository.create('not an object' as any)
+      ).rejects.toThrow('Tenant data must be an object');
+    });
+  });
+
+  describe('update', () => {
+    it('should update tenant and return modification count', async () => {
+      const tenant = await TenantModel.create({
+        realmId: 'realm1',
+        name: 'Original Name',
+        contacts: []
+      });
+
+      const modifiedCount = await tenantRepository.update(
+        tenant._id.toString(),
+        'realm1',
+        { name: 'Updated Name' }
+      );
+
+      expect(modifiedCount).toBe(1);
+
+      // Verify the update
+      const found = await TenantModel.findById(tenant._id).lean();
+      expect(found!.name).toBe('Updated Name');
+    });
+
+    it('should return 0 when tenant not found', async () => {
+      const modifiedCount = await tenantRepository.update(
+        '507f1f77bcf86cd799439011',
+        'realm1',
+        { name: 'Updated' }
+      );
+
+      expect(modifiedCount).toBe(0);
+    });
+
+    it('should return 0 when realmId does not match', async () => {
+      const tenant = await TenantModel.create({
+        realmId: 'realm1',
+        name: 'Test Tenant',
+        contacts: []
+      });
+
+      const modifiedCount = await tenantRepository.update(
+        tenant._id.toString(),
+        'realm2',
+        { name: 'Updated' }
+      );
+
+      expect(modifiedCount).toBe(0);
+    });
+
+    it('should throw error for invalid tenantId', async () => {
+      await expect(
+        tenantRepository.update('', 'realm1', { name: 'Updated' })
+      ).rejects.toThrow('Tenant ID must be a non-empty string');
+
+      await expect(
+        tenantRepository.update(null as any, 'realm1', { name: 'Updated' })
+      ).rejects.toThrow('Tenant ID must be a non-empty string');
+    });
+
+    it('should throw error for invalid realmId', async () => {
+      await expect(
+        tenantRepository.update('507f1f77bcf86cd799439011', '', { name: 'Updated' })
+      ).rejects.toThrow('Realm ID must be a non-empty string');
+
+      await expect(
+        tenantRepository.update('507f1f77bcf86cd799439011', null as any, { name: 'Updated' })
+      ).rejects.toThrow('Realm ID must be a non-empty string');
+    });
+
+    it('should throw error for invalid update data', async () => {
+      await expect(
+        tenantRepository.update('507f1f77bcf86cd799439011', 'realm1', null as any)
+      ).rejects.toThrow('Update data must be an object');
+    });
+  });
+
+  describe('findByIds', () => {
+    it('should find tenants by multiple IDs', async () => {
+      const tenant1 = await TenantModel.create({
+        realmId: 'realm1',
+        name: 'Tenant One',
+        contacts: []
+      });
+
+      const tenant2 = await TenantModel.create({
+        realmId: 'realm1',
+        name: 'Tenant Two',
+        contacts: []
+      });
+
+      const tenant3 = await TenantModel.create({
+        realmId: 'realm1',
+        name: 'Tenant Three',
+        contacts: []
+      });
+
+      const results = await tenantRepository.findByIds(
+        [tenant1._id.toString(), tenant2._id.toString()],
+        'realm1'
+      );
+
+      expect(results).toHaveLength(2);
+      const names = results.map(t => t.name).sort();
+      expect(names).toEqual(['Tenant One', 'Tenant Two']);
+    });
+
+    it('should filter by realmId correctly', async () => {
+      const tenant1 = await TenantModel.create({
+        realmId: 'realm1',
+        name: 'Tenant Realm 1',
+        contacts: []
+      });
+
+      const tenant2 = await TenantModel.create({
+        realmId: 'realm2',
+        name: 'Tenant Realm 2',
+        contacts: []
+      });
+
+      const results = await tenantRepository.findByIds(
+        [tenant1._id.toString(), tenant2._id.toString()],
+        'realm1'
+      );
+
+      expect(results).toHaveLength(1);
+      expect(results[0].name).toBe('Tenant Realm 1');
+      expect(results[0].realmId).toBe('realm1');
+    });
+
+    it('should return empty array when no matches', async () => {
+      const results = await tenantRepository.findByIds(
+        ['507f1f77bcf86cd799439011', '507f1f77bcf86cd799439012'],
+        'realm1'
+      );
+
+      expect(results).toHaveLength(0);
+    });
+
+    it('should return plain objects', async () => {
+      const tenant = await TenantModel.create({
+        realmId: 'realm1',
+        name: 'Test Tenant',
+        contacts: []
+      });
+
+      const results = await tenantRepository.findByIds([tenant._id.toString()], 'realm1');
+
+      expect(results).toHaveLength(1);
+      expect((results[0] as any).save).toBeUndefined();
+      expect((results[0] as any).$isNew).toBeUndefined();
+      expect((results[0] as any).toObject).toBeUndefined();
+    });
+
+    it('should throw error for empty tenant IDs array', async () => {
+      await expect(
+        tenantRepository.findByIds([], 'realm1')
+      ).rejects.toThrow('Tenant IDs must be a non-empty array');
+    });
+
+    it('should throw error for invalid tenant IDs', async () => {
+      await expect(
+        tenantRepository.findByIds(null as any, 'realm1')
+      ).rejects.toThrow('Tenant IDs must be a non-empty array');
+
+      await expect(
+        tenantRepository.findByIds('not-an-array' as any, 'realm1')
+      ).rejects.toThrow('Tenant IDs must be a non-empty array');
+    });
+
+    it('should throw error for missing realmId', async () => {
+      await expect(
+        tenantRepository.findByIds(['507f1f77bcf86cd799439011'], '')
+      ).rejects.toThrow('Realm ID must be a non-empty string');
+
+      await expect(
+        tenantRepository.findByIds(['507f1f77bcf86cd799439011'], null as any)
+      ).rejects.toThrow('Realm ID must be a non-empty string');
+    });
+  });
+
+  describe('deleteMany', () => {
+    it('should delete multiple tenants and return deletion count', async () => {
+      const tenant1 = await TenantModel.create({
+        realmId: 'realm1',
+        name: 'Tenant One',
+        contacts: []
+      });
+
+      const tenant2 = await TenantModel.create({
+        realmId: 'realm1',
+        name: 'Tenant Two',
+        contacts: []
+      });
+
+      const tenant3 = await TenantModel.create({
+        realmId: 'realm1',
+        name: 'Tenant Three',
+        contacts: []
+      });
+
+      const deletedCount = await tenantRepository.deleteMany(
+        [tenant1._id.toString(), tenant2._id.toString()],
+        'realm1'
+      );
+
+      expect(deletedCount).toBe(2);
+
+      // Verify deletion
+      const remaining = await TenantModel.find({ realmId: 'realm1' });
+      expect(remaining).toHaveLength(1);
+      expect(remaining[0].name).toBe('Tenant Three');
+    });
+
+    it('should filter by realmId correctly', async () => {
+      const tenant1 = await TenantModel.create({
+        realmId: 'realm1',
+        name: 'Tenant Realm 1',
+        contacts: []
+      });
+
+      const tenant2 = await TenantModel.create({
+        realmId: 'realm2',
+        name: 'Tenant Realm 2',
+        contacts: []
+      });
+
+      const deletedCount = await tenantRepository.deleteMany(
+        [tenant1._id.toString(), tenant2._id.toString()],
+        'realm1'
+      );
+
+      expect(deletedCount).toBe(1);
+
+      // Verify only realm1 tenant was deleted
+      const tenant1Found = await TenantModel.findById(tenant1._id);
+      const tenant2Found = await TenantModel.findById(tenant2._id);
+
+      expect(tenant1Found).toBeNull();
+      expect(tenant2Found).toBeDefined();
+    });
+
+    it('should return 0 when no tenants match', async () => {
+      const deletedCount = await tenantRepository.deleteMany(
+        ['507f1f77bcf86cd799439011', '507f1f77bcf86cd799439012'],
+        'realm1'
+      );
+
+      expect(deletedCount).toBe(0);
+    });
+
+    it('should throw error for empty tenant IDs array', async () => {
+      await expect(
+        tenantRepository.deleteMany([], 'realm1')
+      ).rejects.toThrow('Tenant IDs must be a non-empty array');
+    });
+
+    it('should throw error for invalid tenant IDs', async () => {
+      await expect(
+        tenantRepository.deleteMany(null as any, 'realm1')
+      ).rejects.toThrow('Tenant IDs must be a non-empty array');
+
+      await expect(
+        tenantRepository.deleteMany('not-an-array' as any, 'realm1')
+      ).rejects.toThrow('Tenant IDs must be a non-empty array');
+    });
+
+    it('should throw error for missing realmId', async () => {
+      await expect(
+        tenantRepository.deleteMany(['507f1f77bcf86cd799439011'], '')
+      ).rejects.toThrow('Realm ID must be a non-empty string');
+
+      await expect(
+        tenantRepository.deleteMany(['507f1f77bcf86cd799439011'], null as any)
+      ).rejects.toThrow('Realm ID must be a non-empty string');
+    });
+  });
+
+  describe('findWithAggregation', () => {
+    it('should return tenants with filesToUpload populated', async () => {
+      // This is a basic test - full aggregation testing would require
+      // setting up templates and documents which is complex
+      const tenant = await TenantModel.create({
+        realmId: 'realm1',
+        name: 'Test Tenant',
+        contacts: []
+      });
+
+      const results = await tenantRepository.findWithAggregation('realm1');
+
+      expect(results).toHaveLength(1);
+      expect(results[0].name).toBe('Test Tenant');
+      expect(results[0].filesToUpload).toBeDefined();
+      expect(Array.isArray(results[0].filesToUpload)).toBe(true);
+    });
+
+    it('should filter by specific tenantId when provided', async () => {
+      const tenant1 = await TenantModel.create({
+        realmId: 'realm1',
+        name: 'Tenant One',
+        contacts: []
+      });
+
+      const tenant2 = await TenantModel.create({
+        realmId: 'realm1',
+        name: 'Tenant Two',
+        contacts: []
+      });
+
+      const results = await tenantRepository.findWithAggregation(
+        'realm1',
+        tenant1._id.toString()
+      );
+
+      expect(results).toHaveLength(1);
+      expect(results[0].name).toBe('Tenant One');
+    });
+
+    it('should sort results by name', async () => {
+      await TenantModel.create({
+        realmId: 'realm1',
+        name: 'Charlie',
+        contacts: []
+      });
+
+      await TenantModel.create({
+        realmId: 'realm1',
+        name: 'Alice',
+        contacts: []
+      });
+
+      await TenantModel.create({
+        realmId: 'realm1',
+        name: 'Bob',
+        contacts: []
+      });
+
+      const results = await tenantRepository.findWithAggregation('realm1');
+
+      expect(results).toHaveLength(3);
+      expect(results[0].name).toBe('Alice');
+      expect(results[1].name).toBe('Bob');
+      expect(results[2].name).toBe('Charlie');
+    });
+
+    it('should throw error for missing realmId', async () => {
+      await expect(
+        tenantRepository.findWithAggregation('')
+      ).rejects.toThrow('Realm ID must be a non-empty string');
+
+      await expect(
+        tenantRepository.findWithAggregation(null as any)
+      ).rejects.toThrow('Realm ID must be a non-empty string');
+    });
+  });
+
+  describe('findAll', () => {
+    it('should find all tenants in a realm', async () => {
+      await TenantModel.create({
+        realmId: 'realm1',
+        name: 'Tenant One',
+        contacts: []
+      });
+
+      await TenantModel.create({
+        realmId: 'realm1',
+        name: 'Tenant Two',
+        contacts: []
+      });
+
+      await TenantModel.create({
+        realmId: 'realm2',
+        name: 'Tenant Three',
+        contacts: []
+      });
+
+      const results = await tenantRepository.findAll('realm1');
+
+      expect(results).toHaveLength(2);
+      expect(results.every(t => t.realmId === 'realm1')).toBe(true);
+    });
+
+    it('should return empty array when no tenants in realm', async () => {
+      const results = await tenantRepository.findAll('realm1');
+      expect(results).toHaveLength(0);
+    });
+
+    it('should return plain objects', async () => {
+      await TenantModel.create({
+        realmId: 'realm1',
+        name: 'Test Tenant',
+        contacts: []
+      });
+
+      const results = await tenantRepository.findAll('realm1');
+
+      expect(results).toHaveLength(1);
+      expect((results[0] as any).save).toBeUndefined();
+      expect((results[0] as any).$isNew).toBeUndefined();
+      expect((results[0] as any).toObject).toBeUndefined();
+    });
+
+    it('should throw error for missing realmId', async () => {
+      await expect(
+        tenantRepository.findAll('')
+      ).rejects.toThrow('Realm ID must be a non-empty string');
+
+      await expect(
+        tenantRepository.findAll(null as any)
       ).rejects.toThrow('Realm ID must be a non-empty string');
     });
   });

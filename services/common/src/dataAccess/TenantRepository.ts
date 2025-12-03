@@ -1,5 +1,42 @@
 import { CollectionTypes } from '@microrealestate/types';
 import TenantModel from '../collections/tenant.js';
+import { ObjectId } from '../collections/index.js';
+
+
+
+/**
+ * File descriptor with associated documents
+ * 
+ * Represents a Template (file descriptor) with its associated uploaded Documents.
+ * The missing flag is computed by the occupant manager based on requirements.
+ */
+interface FileDescriptorWithDocuments {
+  // Template fields (from aggregation)
+  _id: string;
+  name: string;
+  description: string;
+  required: boolean;
+  requiredOnceContractTerminated: boolean;
+  
+  // Associated documents (from nested aggregation)
+  documents: Array<Partial<Document>>;
+  
+  // Computed field (added by occupant manager after aggregation)
+  missing?: boolean;
+}
+/**
+ * Extended Tenant type returned by findWithAggregation
+ * 
+ * Includes all Tenant fields plus filesToUpload array populated
+ * from the aggregation pipeline that joins:
+ * - Tenant → Template (file descriptors linked to lease)
+ * - Template → Document (uploaded files for this tenant)
+ */
+interface TenantWithFileDescriptors extends CollectionTypes.Tenant {
+  filesToUpload: FileDescriptorWithDocuments[];
+}
+
+
 
 /**
  * Repository for Tenant entity operations
@@ -273,6 +310,297 @@ export default class TenantRepository {
       }
     }).lean();
 
+    return tenants as CollectionTypes.Tenant[];
+  }
+
+  /**
+   * Create a new tenant
+   * 
+   * Creates a new tenant document in the database and returns it as a plain object.
+   * 
+   * @param tenantData - Tenant creation data (must include realmId)
+   * @returns Created tenant object
+   * @throws Error if tenantData is invalid or missing realmId
+   * 
+   * @example
+   * ```typescript
+   * const newTenant = await tenantRepository.create({
+   *   realmId: '507f1f77bcf86cd799439011',
+   *   name: 'John Doe',
+   *   contacts: [{ contact: 'John', phone: '123-456-7890', email: 'john@example.com' }]
+   * });
+   * console.log(`Created tenant: ${newTenant.name}`);
+   * ```
+   */
+  async create(tenantData: Partial<CollectionTypes.Tenant>): Promise<CollectionTypes.Tenant> {
+    if (!tenantData || typeof tenantData !== 'object') {
+      throw new Error('Tenant data must be an object');
+    }
+    if (!tenantData.realmId) {
+      throw new Error('Tenant data must include realmId');
+    }
+
+    const doc = await TenantModel.create(tenantData);
+    return doc.toObject();
+  }
+
+  /**
+   * Update an existing tenant
+   * 
+   * Updates a tenant document and returns the number of documents modified.
+   * 
+   * @param tenantId - Tenant ID to update
+   * @param realmId - Realm ID for security filtering
+   * @param updateData - Data to update
+   * @returns Number of documents modified (0 or 1)
+   * @throws Error if tenantId, realmId, or updateData is invalid
+   * 
+   * @example
+   * ```typescript
+   * const modifiedCount = await tenantRepository.update(
+   *   '507f1f77bcf86cd799439011',
+   *   '507f1f77bcf86cd799439012',
+   *   { name: 'Jane Doe' }
+   * );
+   * console.log(`Modified ${modifiedCount} tenant(s)`);
+   * ```
+   */
+  async update(
+    tenantId: string,
+    realmId: string,
+    updateData: Partial<CollectionTypes.Tenant>
+  ): Promise<number> {
+    if (!tenantId || typeof tenantId !== 'string') {
+      throw new Error('Tenant ID must be a non-empty string');
+    }
+    if (!realmId || typeof realmId !== 'string') {
+      throw new Error('Realm ID must be a non-empty string');
+    }
+    if (!updateData || typeof updateData !== 'object') {
+      throw new Error('Update data must be an object');
+    }
+
+    const result = await TenantModel.updateOne(
+      { _id: tenantId, realmId: realmId },
+      updateData
+    );
+
+    return result.modifiedCount || 0;
+  }
+
+  /**
+   * Find tenants by IDs with realm filtering
+   * 
+   * Returns all tenants with the specified IDs that belong to the given realm.
+   * 
+   * @param tenantIds - Array of tenant IDs
+   * @param realmId - Realm ID for security filtering
+   * @returns Array of tenant objects (may be empty if no matches found)
+   * @throws Error if tenantIds or realmId is invalid
+   * 
+   * @example
+   * ```typescript
+   * const tenants = await tenantRepository.findByIds(
+   *   ['507f1f77bcf86cd799439011', '507f1f77bcf86cd799439012'],
+   *   '507f1f77bcf86cd799439013'
+   * );
+   * console.log(`Found ${tenants.length} tenants`);
+   * ```
+   */
+  async findByIds(tenantIds: string[], realmId: string): Promise<CollectionTypes.Tenant[]> {
+    if (!Array.isArray(tenantIds) || tenantIds.length === 0) {
+      throw new Error('Tenant IDs must be a non-empty array');
+    }
+    if (!realmId || typeof realmId !== 'string') {
+      throw new Error('Realm ID must be a non-empty string');
+    }
+
+    const tenants = await TenantModel.find({
+      _id: { $in: tenantIds },
+      realmId: realmId
+    }).lean();
+
+    return tenants as CollectionTypes.Tenant[];
+  }
+
+  /**
+   * Delete multiple tenants
+   * 
+   * Deletes all tenants with the specified IDs that belong to the given realm.
+   * 
+   * @param tenantIds - Array of tenant IDs to delete
+   * @param realmId - Realm ID for security filtering
+   * @returns Number of tenants deleted
+   * @throws Error if tenantIds or realmId is invalid
+   * 
+   * @example
+   * ```typescript
+   * const deletedCount = await tenantRepository.deleteMany(
+   *   ['507f1f77bcf86cd799439011', '507f1f77bcf86cd799439012'],
+   *   '507f1f77bcf86cd799439013'
+   * );
+   * console.log(`Deleted ${deletedCount} tenant(s)`);
+   * ```
+   */
+  async deleteMany(tenantIds: string[], realmId: string): Promise<number> {
+    if (!Array.isArray(tenantIds) || tenantIds.length === 0) {
+      throw new Error('Tenant IDs must be a non-empty array');
+    }
+    if (!realmId || typeof realmId !== 'string') {
+      throw new Error('Realm ID must be a non-empty string');
+    }
+
+    const result = await TenantModel.deleteMany({
+      realmId: realmId,
+      _id: { $in: tenantIds }
+    });
+
+    return result.deletedCount || 0;
+  }
+
+  /**
+   * Find tenants with aggregation pipeline
+   * 
+   * Performs complex aggregation to join tenants with:
+   * - File descriptors (templates) linked to the lease
+   * - Documents uploaded by the tenant
+   * - Lease and property references (populated)
+   * 
+   * Returns tenants with additional filesToUpload field populated.
+   * The missing document flags are NOT computed by this method - 
+   * they must be computed by the caller.
+   * 
+   * @param realmId - Realm ID
+   * @param tenantId - Optional specific tenant ID
+   * @returns Array of tenant objects with filesToUpload populated
+   * @throws Error if realmId is invalid
+   * 
+   * @example
+   * ```typescript
+   * // Get all tenants with file descriptors
+   * const tenants = await tenantRepository.findWithAggregation('507f1f77bcf86cd799439011');
+   * 
+   * // Get specific tenant with file descriptors
+   * const tenant = await tenantRepository.findWithAggregation(
+   *   '507f1f77bcf86cd799439011',
+   *   '507f1f77bcf86cd799439012'
+   * );
+   * ```
+   */
+  async findWithAggregation(
+    realmId: string,
+    tenantId?: string
+  ): Promise<TenantWithFileDescriptors[]> {
+    if (!realmId || typeof realmId !== 'string') {
+      throw new Error('Realm ID must be a non-empty string');
+    }
+
+    const $match: any = { realmId };
+    if (tenantId) {
+      // Convert string ID to ObjectId for aggregation
+      $match._id = new ObjectId(tenantId);
+    }
+
+    const tenants = await TenantModel.aggregate<TenantWithFileDescriptors>([
+      { $match },
+      {
+        $lookup: {
+          from: 'templates',
+          let: {
+            tenant_realmId: '$realmId',
+            tenant_tenantId: { $toString: '$_id' },
+            tenant_leaseId: '$leaseId'
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ['$realmId', '$$tenant_realmId'] },
+                    { $in: ['$$tenant_leaseId', '$linkedResourceIds'] },
+                    { $eq: ['$type', 'fileDescriptor'] }
+                  ]
+                }
+              }
+            },
+            {
+              $lookup: {
+                from: 'documents',
+                let: { template_templateId: { $toString: '$_id' } },
+                pipeline: [
+                  {
+                    $match: {
+                      $expr: {
+                        $and: [
+                          { $eq: ['$realmId', '$$tenant_realmId'] },
+                          { $eq: ['$tenantId', '$$tenant_tenantId'] },
+                          { $eq: ['$leaseId', '$$tenant_leaseId'] },
+                          { $eq: ['$type', 'file'] },
+                          { $eq: ['$templateId', '$$template_templateId'] }
+                        ]
+                      }
+                    }
+                  },
+                  {
+                    $project: {
+                      realmId: 0,
+                      leaseId: 0,
+                      tenantId: 0,
+                      type: 0,
+                      mimeType: 0,
+                      templateId: 0,
+                      url: 0
+                    }
+                  }
+                ],
+                as: 'documents'
+              }
+            },
+            {
+              $project: {
+                realmId: 0,
+                linkedResourceIds: 0,
+                type: 0,
+                hasExpiryDate: 0
+              }
+            }
+          ],
+          as: 'filesToUpload'
+        }
+      },
+      { $sort: { name: 1 } }
+    ]);
+
+    // Populate references
+    await TenantModel.populate(tenants, [
+      { path: 'leaseId' },
+      { path: 'properties.propertyId' }
+    ]);
+
+    return tenants;
+  }
+
+  /**
+   * Find all tenants in a realm
+   * 
+   * Returns all tenants that belong to the specified realm.
+   * 
+   * @param realmId - Realm ID
+   * @returns Array of tenant objects (may be empty if no matches found)
+   * @throws Error if realmId is invalid
+   * 
+   * @example
+   * ```typescript
+   * const tenants = await tenantRepository.findAll('507f1f77bcf86cd799439011');
+   * console.log(`Found ${tenants.length} tenants`);
+   * ```
+   */
+  async findAll(realmId: string): Promise<CollectionTypes.Tenant[]> {
+    if (!realmId || typeof realmId !== 'string') {
+      throw new Error('Realm ID must be a non-empty string');
+    }
+
+    const tenants = await TenantModel.find({ realmId }).lean();
     return tenants as CollectionTypes.Tenant[];
   }
 }

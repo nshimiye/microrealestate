@@ -17,12 +17,16 @@ import AccountRepository from './AccountRepository.js';
 import TenantRepository from './TenantRepository.js';
 import RealmRepository from './RealmRepository.js';
 import PropertyRepository from './PropertyRepository.js';
+import DocumentRepository from './DocumentRepository.js';
+import SessionManager from './SessionManager.js';
 
 // Singleton instances
 let accountRepositoryInstance: AccountRepository | null = null;
 let tenantRepositoryInstance: TenantRepository | null = null;
 let realmRepositoryInstance: RealmRepository | null = null;
 let propertyRepositoryInstance: PropertyRepository | null = null;
+let documentRepositoryInstance: DocumentRepository | null = null;
+let sessionManagerInstance: SessionManager | null = null;
 
 /**
  * Get the singleton AccountRepository instance
@@ -66,4 +70,26 @@ export function getPropertyRepository(): PropertyRepository {
     propertyRepositoryInstance = new PropertyRepository();
   }
   return propertyRepositoryInstance;
+}
+
+/**
+ * Get the singleton DocumentRepository instance
+ * @returns DocumentRepository instance
+ */
+export function getDocumentRepository(): DocumentRepository {
+  if (!documentRepositoryInstance) {
+    documentRepositoryInstance = new DocumentRepository();
+  }
+  return documentRepositoryInstance;
+}
+
+/**
+ * Get the singleton SessionManager instance
+ * @returns SessionManager instance
+ */
+export function getSessionManager(): SessionManager {
+  if (!sessionManagerInstance) {
+    sessionManagerInstance = new SessionManager();
+  }
+  return sessionManagerInstance;
 }
