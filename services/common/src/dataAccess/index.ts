@@ -18,6 +18,8 @@ import TenantRepository from './TenantRepository.js';
 import RealmRepository from './RealmRepository.js';
 import PropertyRepository from './PropertyRepository.js';
 import DocumentRepository from './DocumentRepository.js';
+import LeaseRepository from './LeaseRepository.js';
+import TemplateRepository from './TemplateRepository.js';
 import SessionManager from './SessionManager.js';
 
 // Singleton instances
@@ -26,6 +28,8 @@ let tenantRepositoryInstance: TenantRepository | null = null;
 let realmRepositoryInstance: RealmRepository | null = null;
 let propertyRepositoryInstance: PropertyRepository | null = null;
 let documentRepositoryInstance: DocumentRepository | null = null;
+let leaseRepositoryInstance: LeaseRepository | null = null;
+let templateRepositoryInstance: TemplateRepository | null = null;
 let sessionManagerInstance: SessionManager | null = null;
 
 /**
@@ -81,6 +85,28 @@ export function getDocumentRepository(): DocumentRepository {
     documentRepositoryInstance = new DocumentRepository();
   }
   return documentRepositoryInstance;
+}
+
+/**
+ * Get the singleton LeaseRepository instance
+ * @returns LeaseRepository instance
+ */
+export function getLeaseRepository(): LeaseRepository {
+  if (!leaseRepositoryInstance) {
+    leaseRepositoryInstance = new LeaseRepository();
+  }
+  return leaseRepositoryInstance;
+}
+
+/**
+ * Get the singleton TemplateRepository instance
+ * @returns TemplateRepository instance
+ */
+export function getTemplateRepository(): TemplateRepository {
+  if (!templateRepositoryInstance) {
+    templateRepositoryInstance = new TemplateRepository();
+  }
+  return templateRepositoryInstance;
 }
 
 /**
