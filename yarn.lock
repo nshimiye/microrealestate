@@ -1566,6 +1566,7 @@ __metadata:
     eslint: 8.57.0
     eslint-config-prettier: 9.1.0
     eslint-plugin-import: 2.29.1
+    fast-check: 3.23.2
     i18n: 0.13.3
     json2csv: 5.0.6
     jsonwebtoken: 9.0.0
@@ -9381,7 +9382,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"fast-check@npm:^3.22.0":
+"fast-check@npm:3.23.2, fast-check@npm:^3.22.0":
   version: 3.23.2
   resolution: "fast-check@npm:3.23.2"
   dependencies:
