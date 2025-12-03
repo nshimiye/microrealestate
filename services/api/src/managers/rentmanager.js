@@ -202,7 +202,6 @@ async function _updateByTerm(
     paymentData.noteextracharge = null;
   }
 
-  // Replace Collections.Tenant.findOne().lean() with tenantRepository.findOne()
   const occupant = await tenantRepository.findOne({
     tenantId: paymentData._id,
     realmId: String(realm._id)
@@ -276,7 +275,6 @@ async function _updateByTerm(
       Number(term)
     ).catch(logger.error)) || {};
 
-  // Replace Collections.Tenant.findOneAndUpdate().lean() with tenantRepository.findOneAndUpdate()
   const savedOccupant = await tenantRepository.findOneAndUpdate(
     {
       tenantId: String(occupant._id),

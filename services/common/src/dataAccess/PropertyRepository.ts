@@ -197,4 +197,29 @@ export default class PropertyRepository {
 
     return properties as CollectionTypes.Property[];
   }
+
+  /**
+   * Count properties in a realm
+   * 
+   * Returns the total number of properties belonging to the specified realm.
+   * Uses efficient countDocuments() method for performance.
+   * 
+   * @param realmId - Realm ID
+   * @returns Number of properties in the realm
+   * @throws Error if realmId is invalid
+   * 
+   * @example
+   * ```typescript
+   * const count = await propertyRepository.countByRealmId('507f1f77bcf86cd799439011');
+   * console.log(`Total properties: ${count}`);
+   * ```
+   */
+  async countByRealmId(realmId: string): Promise<number> {
+    if (!realmId || typeof realmId !== 'string') {
+      throw new Error('Realm ID must be a non-empty string');
+    }
+
+    const count = await PropertyModel.countDocuments({ realmId });
+    return count;
+  }
 }

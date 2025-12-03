@@ -360,6 +360,46 @@ describe('PropertyRepository', () => {
     }, 35000);
   });
 
+  describe('Property 2: PropertyRepository.countByRealmId returns correct count', () => {
+    it('should return the exact number of properties in a realm', async () => {
+      // Feature: api-dashboard-data-access-layer, Property 2: PropertyRepository.countByRealmId returns correct count
+      // Validates: Requirements 2.1, 2.2
+
+      await fc.assert(
+        fc.asyncProperty(
+          fc.string({ minLength: 24, maxLength: 24 }).map(s => s.replace(/[^0-9a-f]/g, '0').toLowerCase()),
+          fc.array(propertyDataArbitrary, { minLength: 0, maxLength: 10 }),
+          async (realmId, propertiesData) => {
+            // Clear database before this test
+            await clearTestDB();
+
+            // Create all properties in the same realm
+            const propertiesWithSameRealm = propertiesData.map(p => ({
+              ...p,
+              realmId: realmId
+            }));
+
+            // Create all properties
+            for (const propertyData of propertiesWithSameRealm) {
+              await propertyRepository.create(propertyData);
+            }
+
+            // Count properties using countByRealmId
+            const count = await propertyRepository.countByRealmId(realmId);
+
+            // Verify count matches the number of properties created
+            expect(count).toBe(propertiesWithSameRealm.length);
+
+            // Also verify against findAll for consistency
+            const allProperties = await propertyRepository.findAll(realmId);
+            expect(count).toBe(allProperties.length);
+          }
+        ),
+        { numRuns: 100, timeout: 30000 }
+      );
+    }, 35000);
+  });
+
   // ============================================================================
   // Unit Tests
   // ============================================================================
@@ -830,6 +870,124 @@ describe('PropertyRepository', () => {
       expect((properties[0] as any).save).toBeUndefined();
       expect((properties[0] as any).$isNew).toBeUndefined();
       expect((properties[0] as any).toObject).toBeUndefined();
+    });
+  });
+
+  describe('countByRealmId', () => {
+    it('should count properties in a realm with multiple properties', async () => {
+      await PropertyModel.create({
+        realmId: '507f1f77bcf86cd799439011',
+        name: 'Property 1',
+        type: 'apartment',
+        surface: 75,
+        price: 1200
+      });
+
+      await PropertyModel.create({
+        realmId: '507f1f77bcf86cd799439011',
+        name: 'Property 2',
+        type: 'house',
+        surface: 150,
+        price: 2000
+      });
+
+      await PropertyModel.create({
+        realmId: '507f1f77bcf86cd799439011',
+        name: 'Property 3',
+        type: 'office',
+        surface: 100,
+        price: 1500
+      });
+
+      const count = await propertyRepository.countByRealmId('507f1f77bcf86cd799439011');
+
+      expect(count).toBe(3);
+    });
+
+    it('should return 0 for empty realm', async () => {
+      const count = await propertyRepository.countByRealmId('507f1f77bcf86cd799439011');
+
+      expect(count).toBe(0);
+    });
+
+    it('should throw error for invalid realmId', async () => {
+      await expect(
+        propertyRepository.countByRealmId('')
+      ).rejects.toThrow('Realm ID must be a non-empty string');
+
+      await expect(
+        propertyRepository.countByRealmId(null as any)
+      ).rejects.toThrow('Realm ID must be a non-empty string');
+
+      await expect(
+        propertyRepository.countByRealmId(undefined as any)
+      ).rejects.toThrow('Realm ID must be a non-empty string');
+    });
+
+    it('should count only properties in specified realm', async () => {
+      await PropertyModel.create({
+        realmId: '507f1f77bcf86cd799439011',
+        name: 'Property 1',
+        type: 'apartment',
+        surface: 75,
+        price: 1200
+      });
+
+      await PropertyModel.create({
+        realmId: '507f1f77bcf86cd799439011',
+        name: 'Property 2',
+        type: 'house',
+        surface: 150,
+        price: 2000
+      });
+
+      await PropertyModel.create({
+        realmId: '507f1f77bcf86cd799439012', // Different realm
+        name: 'Property 3',
+        type: 'office',
+        surface: 100,
+        price: 1500
+      });
+
+      const count = await propertyRepository.countByRealmId('507f1f77bcf86cd799439011');
+
+      expect(count).toBe(2);
+    });
+
+    it('should match count with actual number of properties', async () => {
+      const propertyData = [
+        {
+          realmId: '507f1f77bcf86cd799439011',
+          name: 'Property 1',
+          type: 'apartment',
+          surface: 75,
+          price: 1200
+        },
+        {
+          realmId: '507f1f77bcf86cd799439011',
+          name: 'Property 2',
+          type: 'house',
+          surface: 150,
+          price: 2000
+        },
+        {
+          realmId: '507f1f77bcf86cd799439011',
+          name: 'Property 3',
+          type: 'office',
+          surface: 100,
+          price: 1500
+        }
+      ];
+
+      for (const data of propertyData) {
+        await PropertyModel.create(data);
+      }
+
+      const count = await propertyRepository.countByRealmId('507f1f77bcf86cd799439011');
+      const allProperties = await propertyRepository.findAll('507f1f77bcf86cd799439011');
+
+      expect(count).toBe(propertyData.length);
+      expect(count).toBe(allProperties.length);
     });
   });
 });

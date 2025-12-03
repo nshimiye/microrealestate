@@ -580,6 +580,110 @@ export default class TenantRepository {
     return tenants;
   }
 
+
+  async findAllByYear(realmId: string, year: string): Promise<any[]> {
+return TenantModel.aggregate([
+    {
+      $match: {
+        realmId,
+        'rents.year': year
+      }
+    },
+    {
+      $addFields: {
+        nameLowerCase: { $toLower: '$name' }, // to sort ignoring the case
+        properties: {
+          $map: {
+            input: '$properties',
+            as: 'p',
+            in: {
+              _id: '$$p.property._id',
+              type: '$$p.property.type',
+              name: '$$p.property.name'
+            }
+          }
+        },
+        rents: {
+          $map: {
+            input: '$rents',
+            as: 'rent',
+            in: {
+              year: '$$rent.year',
+              month: '$$rent.month',
+              payments: '$$rent.payments',
+              total: '$$rent.total'
+            }
+          }
+        }
+      }
+    },
+    {
+      // done in a separate stage to rely on endDate computed in the previous stage
+      $addFields: {
+        incoming: {
+          $and: [
+            { $gte: ['$beginDate', new Date(`${year}-01-01T00:00:00`)] },
+            { $lt: ['$beginDate', new Date(`${year + 1}-01-01T00:00:00`)] }
+          ]
+        },
+        outgoing: {
+          $or: [
+            {
+              $and: [
+                {
+                  $gte: ['$terminationDate', new Date(`${year}-01-01T00:00:00`)]
+                },
+                {
+                  $lt: [
+                    '$terminationDate',
+                    new Date(`${year + 1}-01-01T00:00:00`)
+                  ]
+                }
+              ]
+            },
+            {
+              $and: [
+                { $gte: ['$endDate', new Date(`${year}-01-01T00:00:00`)] },
+                { $lt: ['$endDate', new Date(`${year + 1}-01-01T00:00:00`)] }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      $sort: {
+        nameLowerCase: 1
+      }
+    },
+    {
+      $project: {
+        realmId: 1,
+        _id: 1,
+        name: 1,
+        incoming: 1,
+        outgoing: 1,
+        reference: 1,
+        beginDate: 1,
+        endDate: 1,
+        terminationDate: 1,
+        guaranty: 1,
+        guarantyPayback: 1,
+        properties: 1,
+        rents: {
+          $filter: {
+            input: '$rents',
+            as: 'rent',
+            cond: {
+              $eq: ['$$rent.year', year]
+            }
+          }
+        }
+      }
+    }
+  ]);
+  }
+
   /**
    * Find all tenants in a realm
    * 
