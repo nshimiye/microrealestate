@@ -608,6 +608,161 @@ describe('TenantRepository', () => {
     }, 35000);
   });
 
+  describe('Property 12: Tenant property filtering', () => {
+    it('should return only tenants with specified property IDs', async () => {
+      // Feature: api-property-data-access-layer, Property 7: Tenant property filtering
+      // Validates: Requirements 4.2
+
+      await fc.assert(
+        fc.asyncProperty(
+          fc.string({ minLength: 1, maxLength: 50 }),
+          fc.array(
+            fc.record({
+              propertyId: fc.string({ minLength: 24, maxLength: 24 }).map(s => s.padEnd(24, '0')),
+              name: fc.string({ minLength: 1, maxLength: 100 }).filter(s => s.trim().length > 0)
+            }),
+            { minLength: 2, maxLength: 5 }
+          ),
+          async (realmId, tenantPropertyPairs) => {
+            // Clear database before each property test iteration
+            await clearTestDB();
+
+            // Ensure unique property IDs
+            const uniquePairs = tenantPropertyPairs.map((pair, i) => ({
+              propertyId: `prop${i.toString().padStart(20, '0')}`,
+              name: `${pair.name}_${i}`
+            }));
+
+            // Create tenants with different property IDs
+            for (const pair of uniquePairs) {
+              await TenantModel.create({
+                realmId,
+                name: pair.name,
+                contacts: [],
+                properties: [
+                  {
+                    propertyId: pair.propertyId,
+                    rent: 1000
+                  }
+                ]
+              });
+            }
+
+            // Pick a subset of property IDs to search for
+            const searchPropertyIds = uniquePairs.slice(0, Math.ceil(uniquePairs.length / 2)).map(p => p.propertyId);
+
+            // Query for tenants with those property IDs
+            const results = await tenantRepository.findByPropertyIds(searchPropertyIds, realmId);
+
+            // Should return at least the tenants we're searching for
+            expect(results.length).toBeGreaterThanOrEqual(searchPropertyIds.length);
+
+            // All returned tenants should have at least one of the searched property IDs
+            for (const tenant of results) {
+              const hasMatchingProperty = tenant.properties?.some(
+                (p: any) => searchPropertyIds.includes(p.propertyId)
+              );
+              expect(hasMatchingProperty).toBe(true);
+            }
+
+            // Verify results are plain objects
+            for (const tenant of results) {
+              expect((tenant as any).save).toBeUndefined();
+              expect((tenant as any).$isNew).toBeUndefined();
+              expect((tenant as any).toObject).toBeUndefined();
+            }
+          }
+        ),
+        { numRuns: 100, timeout: 30000 }
+      );
+    }, 35000);
+  });
+
+  describe('Property 13: Tenant realm filtering', () => {
+    it('should return only tenants from the specified realm', async () => {
+      // Feature: api-property-data-access-layer, Property 8: Tenant realm filtering
+      // Validates: Requirements 4.3
+
+      await fc.assert(
+        fc.asyncProperty(
+          fc.string({ minLength: 1, maxLength: 50 }),
+          fc.string({ minLength: 1, maxLength: 50 }),
+          fc.array(
+            fc.record({
+              propertyId: fc.string({ minLength: 24, maxLength: 24 }).map(s => s.padEnd(24, '0')),
+              name: fc.string({ minLength: 1, maxLength: 100 }).filter(s => s.trim().length > 0)
+            }),
+            { minLength: 1, maxLength: 3 }
+          ),
+          async (targetRealmId, otherRealmId, tenantPropertyPairs) => {
+            // Ensure realms are different
+            fc.pre(targetRealmId !== otherRealmId);
+
+            // Clear database before each property test iteration
+            await clearTestDB();
+
+            // Ensure unique property IDs
+            const uniquePairs = tenantPropertyPairs.map((pair, i) => ({
+              propertyId: `prop${i.toString().padStart(20, '0')}`,
+              name: `${pair.name}_${i}`
+            }));
+
+            const propertyIds = uniquePairs.map(p => p.propertyId);
+
+            // Create tenants in target realm
+            for (const pair of uniquePairs) {
+              await TenantModel.create({
+                realmId: targetRealmId,
+                name: pair.name,
+                contacts: [],
+                properties: [
+                  {
+                    propertyId: pair.propertyId,
+                    rent: 1000
+                  }
+                ]
+              });
+            }
+
+            // Create tenants in other realm with same property IDs
+            for (const pair of uniquePairs) {
+              await TenantModel.create({
+                realmId: otherRealmId,
+                name: pair.name + ' Other',
+                contacts: [],
+                properties: [
+                  {
+                    propertyId: pair.propertyId,
+                    rent: 1000
+                  }
+                ]
+              });
+            }
+
+            // Query for tenants in target realm
+            const results = await tenantRepository.findByPropertyIds(propertyIds, targetRealmId);
+
+            // Should return at least the tenants from target realm
+            expect(results.length).toBeGreaterThanOrEqual(uniquePairs.length);
+
+            // All returned tenants should be from target realm
+            for (const tenant of results) {
+              expect(tenant.realmId).toBe(targetRealmId);
+            }
+
+            // Verify results are plain objects
+            for (const tenant of results) {
+              expect((tenant as any).save).toBeUndefined();
+              expect((tenant as any).$isNew).toBeUndefined();
+              expect((tenant as any).toObject).toBeUndefined();
+            }
+          }
+        ),
+        { numRuns: 100, timeout: 30000 }
+      );
+    }, 35000);
+  });
+
   // ============================================================================
   // Unit Tests
   // ============================================================================
@@ -1197,6 +1352,199 @@ describe('TenantRepository', () => {
       expect((updated as any).save).toBeUndefined();
       expect((updated as any).$isNew).toBeUndefined();
       expect((updated as any).toObject).toBeUndefined();
+    });
+  });
+
+  describe('findByPropertyIds', () => {
+    it('should find tenants with matching property IDs', async () => {
+      const propertyId1 = '507f1f77bcf86cd799439011';
+      const propertyId2 = '507f1f77bcf86cd799439012';
+      const propertyId3 = '507f1f77bcf86cd799439013';
+
+      // Create tenant with property 1
+      await TenantModel.create({
+        realmId: 'realm1',
+        name: 'Tenant One',
+        contacts: [],
+        properties: [
+          {
+            propertyId: propertyId1,
+            rent: 1000
+          }
+        ]
+      });
+
+      // Create tenant with property 2
+      await TenantModel.create({
+        realmId: 'realm1',
+        name: 'Tenant Two',
+        contacts: [],
+        properties: [
+          {
+            propertyId: propertyId2,
+            rent: 1500
+          }
+        ]
+      });
+
+      // Create tenant with property 3 (not in search)
+      await TenantModel.create({
+        realmId: 'realm1',
+        name: 'Tenant Three',
+        contacts: [],
+        properties: [
+          {
+            propertyId: propertyId3,
+            rent: 2000
+          }
+        ]
+      });
+
+      const results = await tenantRepository.findByPropertyIds(
+        [propertyId1, propertyId2],
+        'realm1'
+      );
+
+      expect(results).toHaveLength(2);
+      const names = results.map(t => t.name).sort();
+      expect(names).toEqual(['Tenant One', 'Tenant Two']);
+    });
+
+    it('should filter by realmId correctly', async () => {
+      const propertyId = '507f1f77bcf86cd799439011';
+
+      // Create tenant in realm1
+      await TenantModel.create({
+        realmId: 'realm1',
+        name: 'Tenant Realm 1',
+        contacts: [],
+        properties: [
+          {
+            propertyId: propertyId,
+            rent: 1000
+          }
+        ]
+      });
+
+      // Create tenant in realm2 with same property
+      await TenantModel.create({
+        realmId: 'realm2',
+        name: 'Tenant Realm 2',
+        contacts: [],
+        properties: [
+          {
+            propertyId: propertyId,
+            rent: 1000
+          }
+        ]
+      });
+
+      const results = await tenantRepository.findByPropertyIds([propertyId], 'realm1');
+
+      expect(results).toHaveLength(1);
+      expect(results[0].name).toBe('Tenant Realm 1');
+      expect(results[0].realmId).toBe('realm1');
+    });
+
+    it('should return plain objects', async () => {
+      const propertyId = '507f1f77bcf86cd799439011';
+
+      await TenantModel.create({
+        realmId: 'realm1',
+        name: 'Test Tenant',
+        contacts: [],
+        properties: [
+          {
+            propertyId: propertyId,
+            rent: 1000
+          }
+        ]
+      });
+
+      const results = await tenantRepository.findByPropertyIds([propertyId], 'realm1');
+
+      expect(results).toHaveLength(1);
+      expect((results[0] as any).save).toBeUndefined();
+      expect((results[0] as any).$isNew).toBeUndefined();
+      expect((results[0] as any).toObject).toBeUndefined();
+    });
+
+    it('should return empty array when no matches', async () => {
+      const propertyId = '507f1f77bcf86cd799439011';
+
+      await TenantModel.create({
+        realmId: 'realm1',
+        name: 'Test Tenant',
+        contacts: [],
+        properties: [
+          {
+            propertyId: '507f1f77bcf86cd799439099',
+            rent: 1000
+          }
+        ]
+      });
+
+      const results = await tenantRepository.findByPropertyIds([propertyId], 'realm1');
+
+      expect(results).toHaveLength(0);
+    });
+
+    it('should find tenant with multiple properties when one matches', async () => {
+      const propertyId1 = '507f1f77bcf86cd799439011';
+      const propertyId2 = '507f1f77bcf86cd799439012';
+      const searchPropertyId = '507f1f77bcf86cd799439013';
+
+      await TenantModel.create({
+        realmId: 'realm1',
+        name: 'Multi Property Tenant',
+        contacts: [],
+        properties: [
+          {
+            propertyId: propertyId1,
+            rent: 1000
+          },
+          {
+            propertyId: searchPropertyId,
+            rent: 1500
+          },
+          {
+            propertyId: propertyId2,
+            rent: 2000
+          }
+        ]
+      });
+
+      const results = await tenantRepository.findByPropertyIds([searchPropertyId], 'realm1');
+
+      expect(results).toHaveLength(1);
+      expect(results[0].name).toBe('Multi Property Tenant');
+      expect(results[0].properties).toHaveLength(3);
+    });
+
+    it('should throw error for empty property IDs array', async () => {
+      await expect(
+        tenantRepository.findByPropertyIds([], 'realm1')
+      ).rejects.toThrow('Property IDs must be a non-empty array');
+    });
+
+    it('should throw error for invalid property IDs', async () => {
+      await expect(
+        tenantRepository.findByPropertyIds(null as any, 'realm1')
+      ).rejects.toThrow('Property IDs must be a non-empty array');
+
+      await expect(
+        tenantRepository.findByPropertyIds('not-an-array' as any, 'realm1')
+      ).rejects.toThrow('Property IDs must be a non-empty array');
+    });
+
+    it('should throw error for missing realmId', async () => {
+      await expect(
+        tenantRepository.findByPropertyIds(['507f1f77bcf86cd799439011'], '')
+      ).rejects.toThrow('Realm ID must be a non-empty string');
+
+      await expect(
+        tenantRepository.findByPropertyIds(['507f1f77bcf86cd799439011'], null as any)
+      ).rejects.toThrow('Realm ID must be a non-empty string');
     });
   });
 });

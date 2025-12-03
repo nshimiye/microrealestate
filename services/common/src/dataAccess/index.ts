@@ -16,11 +16,13 @@
 import AccountRepository from './AccountRepository.js';
 import TenantRepository from './TenantRepository.js';
 import RealmRepository from './RealmRepository.js';
+import PropertyRepository from './PropertyRepository.js';
 
 // Singleton instances
 let accountRepositoryInstance: AccountRepository | null = null;
 let tenantRepositoryInstance: TenantRepository | null = null;
 let realmRepositoryInstance: RealmRepository | null = null;
+let propertyRepositoryInstance: PropertyRepository | null = null;
 
 /**
  * Get the singleton AccountRepository instance
@@ -53,4 +55,15 @@ export function getRealmRepository(): RealmRepository {
     realmRepositoryInstance = new RealmRepository();
   }
   return realmRepositoryInstance;
+}
+
+/**
+ * Get the singleton PropertyRepository instance
+ * @returns PropertyRepository instance
+ */
+export function getPropertyRepository(): PropertyRepository {
+  if (!propertyRepositoryInstance) {
+    propertyRepositoryInstance = new PropertyRepository();
+  }
+  return propertyRepositoryInstance;
 }

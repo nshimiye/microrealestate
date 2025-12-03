@@ -234,4 +234,45 @@ export default class TenantRepository {
 
     return tenant as CollectionTypes.Tenant | null;
   }
+
+  /**
+   * Find tenants by property IDs
+   * 
+   * Returns all tenants that have any of the specified property IDs
+   * in their properties array.
+   * 
+   * @param propertyIds - Array of property IDs to search for
+   * @param realmId - Realm ID for security filtering
+   * @returns Array of tenant objects (may be empty if no matches found)
+   * @throws Error if propertyIds or realmId is invalid
+   * 
+   * @example
+   * ```typescript
+   * const tenants = await tenantRepository.findByPropertyIds(
+   *   ['507f1f77bcf86cd799439011', '507f1f77bcf86cd799439012'],
+   *   '507f1f77bcf86cd799439013'
+   * );
+   * console.log(`Found ${tenants.length} tenants`);
+   * ```
+   */
+  async findByPropertyIds(
+    propertyIds: string[],
+    realmId: string
+  ): Promise<CollectionTypes.Tenant[]> {
+    if (!Array.isArray(propertyIds) || propertyIds.length === 0) {
+      throw new Error('Property IDs must be a non-empty array');
+    }
+    if (!realmId || typeof realmId !== 'string') {
+      throw new Error('Realm ID must be a non-empty string');
+    }
+
+    const tenants = await TenantModel.find({
+      realmId: realmId,
+      'properties.propertyId': {
+        $in: propertyIds
+      }
+    }).lean();
+
+    return tenants as CollectionTypes.Tenant[];
+  }
 }
