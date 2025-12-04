@@ -16,15 +16,15 @@ describe('Templates API - Backward Compatibility', () => {
     // Mock middleware to inject realm and headers
     app.use((req, res, next) => {
       req.realm = testRealm;
-      req.headers.organizationid = testRealm._id;
+      req.headers.organizationid = String(testRealm._id);
       next();
     });
 
     app.use('/templates', templatesRoute());
 
-    // Error handling middleware
+    // Error handling middleware (must match ServiceError.statusCode property)
     app.use((err, req, res, next) => {
-      const status = err.status || 500;
+      const status = err.statusCode || 500;
       res.status(status).json({ error: err.message || 'Internal server error' });
     });
 
@@ -336,8 +336,8 @@ describe('Templates API - Backward Compatibility', () => {
 
       // Verify template was deleted
       const found = await templateRepository.findById(
-        template._id,
-        testRealm._id
+        String(template._id),
+        String(testRealm._id)
       );
       expect(found).toBeNull();
     });
@@ -366,12 +366,12 @@ describe('Templates API - Backward Compatibility', () => {
 
       // Verify templates were deleted
       const found1 = await templateRepository.findById(
-        template1._id,
-        testRealm._id
+        String(template1._id),
+        String(testRealm._id)
       );
       const found2 = await templateRepository.findById(
-        template2._id,
-        testRealm._id
+        String(template2._id),
+        String(testRealm._id)
       );
       expect(found1).toBeNull();
       expect(found2).toBeNull();

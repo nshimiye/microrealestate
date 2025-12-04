@@ -19,15 +19,15 @@ describe('Documents API - Backward Compatibility', () => {
     // Mock middleware to inject realm and headers
     app.use((req, res, next) => {
       req.realm = testRealm;
-      req.headers.organizationid = testRealm._id;
+      req.headers.organizationid = String(testRealm._id);
       next();
     });
 
     app.use('/documents', documentsRoute());
 
-    // Error handling middleware
+    // Error handling middleware (must match ServiceError.statusCode property)
     app.use((err, req, res, next) => {
-      const status = err.status || 500;
+      const status = err.statusCode || 500;
       res.status(status).json({ error: err.message || 'Internal server error' });
     });
 
@@ -376,7 +376,7 @@ describe('Documents API - Backward Compatibility', () => {
       await request(app).delete(`/documents/${doc._id}`).expect(204);
 
       // Verify document was deleted
-      const found = await documentRepository.findById(doc._id, testRealm._id);
+      const found = await documentRepository.findById(String(doc._id), String(testRealm._id));
       expect(found).toBeNull();
     });
 
@@ -407,8 +407,8 @@ describe('Documents API - Backward Compatibility', () => {
         .expect(204);
 
       // Verify documents were deleted
-      const found1 = await documentRepository.findById(doc1._id, testRealm._id);
-      const found2 = await documentRepository.findById(doc2._id, testRealm._id);
+      const found1 = await documentRepository.findById(String(doc1._id), String(testRealm._id));
+      const found2 = await documentRepository.findById(String(doc2._id), String(testRealm._id));
       expect(found1).toBeNull();
       expect(found2).toBeNull();
     });

@@ -157,7 +157,7 @@ export default function () {
 
       const templateRepository = DataAccess.getTemplateRepository();
       const templatesFound = await templateRepository.findAll(organizationId);
-      if (!templatesFound) {
+      if (!templatesFound || templatesFound.length === 0) {
         throw new ServiceError('templates not found', 404);
       }
 
@@ -211,7 +211,7 @@ export default function () {
       const templateRepository = DataAccess.getTemplateRepository();
       const templateFound = await templateRepository.findById(
         templateId,
-        req.realm._id
+        String(req.realm._id)
       );
 
       if (!templateFound) {

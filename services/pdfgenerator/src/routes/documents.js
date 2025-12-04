@@ -24,7 +24,7 @@ import uploadMiddleware from '../utils/uploadmiddelware.js';
  */
 async function _getTemplate(organization, templateId) {
   const templateRepository = DataAccess.getTemplateRepository();
-  return await templateRepository.findById(templateId, organization._id);
+  return await templateRepository.findById(templateId, String(organization._id));
 }
 
 /**
@@ -42,15 +42,15 @@ async function _getTemplateValues(organization, tenantId, leaseId) {
   // Fetch tenant with populated properties
   const tenant = await tenantRepository.findByIdWithProperties(
     tenantId,
-    organization._id
+    String(organization._id)
   );
 
   // Fetch lease
-  const lease = await leaseRepository.findById(leaseId, organization._id);
+  const lease = await leaseRepository.findById(leaseId, String(organization._id));
 
   // compute rent, expenses and surface from properties
   const PropertyGlobals = tenant.properties.reduce(
-    (acc, { rent, expenses = [], property: { surface } }) => {
+    (acc, { rent, expenses = [], propertyId: { surface } }) => {
       acc.rentAmount += rent;
       acc.expensesAmount +=
         expenses.reduce((sum, { amount }) => {
@@ -431,7 +431,7 @@ export default function () {
 
       const documentRepository = DataAccess.getDocumentRepository();
       const documentsFound = await documentRepository.findAll(organizationId);
-      if (!documentsFound) {
+      if (!documentsFound || documentsFound.length === 0) {
         throw new ServiceError('document not found', 404);
       }
 
@@ -493,7 +493,7 @@ export default function () {
       const documentRepository = DataAccess.getDocumentRepository();
       const documentFound = await documentRepository.findById(
         documentId,
-        req.realm._id
+        String(req.realm._id)
       );
 
       if (!documentFound) {
@@ -717,7 +717,7 @@ export default function () {
       }
 
       const documentToCreate = {
-        realmId: req.realm._id,
+        realmId: String(req.realm._id),
         tenantId: dataSet.tenantId,
         leaseId: dataSet.leaseId,
         templateId: dataSet.templateId,
