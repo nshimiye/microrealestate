@@ -7,7 +7,8 @@ import { clearTestDB, connectTestDB, disconnectTestDB } from './testSetup.js';
 
 import { Locale } from '@microrealestate/types';
 import RealmModel from '../../collections/realm.js';
-import RealmRepository from '../../dataAccess/RealmRepository.js';
+// import RealmRepository from '../../dataAccess/RealmRepository.js';
+import { getRealmRepository, IRealmRepository } from '../../data-access-layer/index.js';
 
 // Generator for valid realm data
 const realmDataArbitrary = fc.record({
@@ -35,11 +36,11 @@ const realmDataArbitrary = fc.record({
 });
 
 describe('RealmRepository', () => {
-  let realmRepository: RealmRepository;
+  let realmRepository: IRealmRepository;
 
   beforeAll(async () => {
     await connectTestDB();
-    realmRepository = new RealmRepository();
+    realmRepository = getRealmRepository();
   });
 
   afterAll(async () => {

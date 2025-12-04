@@ -2,13 +2,13 @@ import { describe, expect, it } from 'vitest';
 
 import {
   getAccountRepository,
-  getRealmRepository,
   getTenantRepository,
 } from '../../dataAccess/index.js';
 
 import AccountRepository from '../../dataAccess/AccountRepository.js';
-import RealmRepository from '../../dataAccess/RealmRepository.js';
+// import RealmRepository from '../../dataAccess/RealmRepository.js';
 import TenantRepository from '../../dataAccess/TenantRepository.js';
+import { getRealmRepository, RealmMongoRepository } from '../../data-access-layer/index.js';
 
 describe('Repository Factory Functions', () => {
   describe('getAccountRepository', () => {
@@ -60,7 +60,7 @@ describe('Repository Factory Functions', () => {
   describe('getRealmRepository', () => {
     it('should return a RealmRepository instance', () => {
       const repository = getRealmRepository();
-      expect(repository).toBeInstanceOf(RealmRepository);
+      expect(repository).toBeInstanceOf(RealmMongoRepository);
     });
 
     it('should return the same instance on multiple calls (singleton)', () => {

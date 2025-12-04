@@ -1754,10 +1754,10 @@ describe('TenantRepository', () => {
       expect(results[0].properties).toHaveLength(3);
     });
 
-    it('should throw error for empty property IDs array', async () => {
-      await expect(
-        tenantRepository.findByPropertyIds([], 'realm1')
-      ).rejects.toThrow('Property IDs must be a non-empty array');
+    it('should return empty list for empty property IDs array', async () => {
+      const results = await tenantRepository.findByPropertyIds([], 'realm1');
+      expect(results).toBeInstanceOf(Array);
+      expect(results).toHaveLength(0);
     });
 
     it('should throw error for invalid property IDs', async () => {

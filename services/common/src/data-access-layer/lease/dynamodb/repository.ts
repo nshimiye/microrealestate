@@ -1,7 +1,5 @@
 import { CollectionTypes } from '@microrealestate/types';
-import LeaseModel from '../collections/lease.js';
-import mongoose from 'mongoose';
-import TenantModel from '../collections/tenant.js';
+import {IDataBaseSession, ILeaseRepository} from '../interface.js';
 
 /**
  * Repository for Lease entity operations
@@ -9,7 +7,7 @@ import TenantModel from '../collections/tenant.js';
  * Provides an abstraction layer over Mongoose Lease model,
  * returning plain JavaScript objects instead of Mongoose documents.
  */
-export default class LeaseRepository {
+export default class LeaseRepository implements ILeaseRepository {
   /**
    * Create a new lease
    * 
@@ -29,16 +27,7 @@ export default class LeaseRepository {
    * ```
    */
   async create(leaseData: Partial<CollectionTypes.Lease>): Promise<CollectionTypes.Lease> {
-    if (!leaseData || typeof leaseData !== 'object') {
-      throw new Error('Lease data must be an object');
-    }
-    
-    if (!leaseData.realmId) {
-      throw new Error('Realm ID is required');
-    }
-    
-    const doc = await LeaseModel.create(leaseData);
-    return doc.toObject();
+    throw new Error('Implement this');
   }
 
   /**
@@ -58,19 +47,7 @@ export default class LeaseRepository {
    * ```
    */
   async findById(leaseId: string, realmId: string): Promise<CollectionTypes.Lease | null> {
-    if (!leaseId || typeof leaseId !== 'string') {
-      throw new Error('Lease ID must be a non-empty string');
-    }
-    if (!realmId || typeof realmId !== 'string') {
-      throw new Error('Realm ID must be a non-empty string');
-    }
-    
-    const lease = await LeaseModel.findOne({
-      _id: leaseId,
-      realmId: realmId
-    }).lean();
-    
-    return lease as CollectionTypes.Lease | null;
+    throw new Error('Implement this');
   }
 
   /**
@@ -88,15 +65,7 @@ export default class LeaseRepository {
    * ```
    */
   async findAll(realmId: string): Promise<CollectionTypes.Lease[]> {
-    if (!realmId || typeof realmId !== 'string') {
-      throw new Error('Realm ID must be a non-empty string');
-    }
-    
-    const leases = await LeaseModel.find({ realmId: realmId })
-      .sort({ name: 1 })
-      .lean();
-    
-    return leases as CollectionTypes.Lease[];
+    throw new Error('Implement this');
   }
 
   /**
@@ -122,23 +91,7 @@ export default class LeaseRepository {
     realmId: string,
     updateData: Partial<CollectionTypes.Lease>
   ): Promise<CollectionTypes.Lease | null> {
-    if (!leaseId || typeof leaseId !== 'string') {
-      throw new Error('Lease ID must be a non-empty string');
-    }
-    if (!realmId || typeof realmId !== 'string') {
-      throw new Error('Realm ID must be a non-empty string');
-    }
-    if (!updateData || typeof updateData !== 'object') {
-      throw new Error('Update data must be an object');
-    }
-    
-    const lease = await LeaseModel.findOneAndUpdate(
-      { _id: leaseId, realmId: realmId },
-      updateData,
-      { new: true }
-    ).lean();
-    
-    return lease as CollectionTypes.Lease | null;
+    throw new Error('Implement this');
   }
 
   /**
@@ -161,21 +114,9 @@ export default class LeaseRepository {
   async deleteMany(
     leaseIds: string[],
     realmId: string,
-    session?: mongoose.ClientSession
+    session?: IDataBaseSession // TODO figure out dynamodb equivelant 
   ): Promise<number> {
-    if (!Array.isArray(leaseIds) || leaseIds.length === 0) {
-      throw new Error('Lease IDs must be a non-empty array');
-    }
-    if (!realmId || typeof realmId !== 'string') {
-      throw new Error('Realm ID must be a non-empty string');
-    }
-    
-    const result = await LeaseModel.deleteMany(
-      { _id: { $in: leaseIds }, realmId: realmId },
-      // { session: session as any }
-    );
-    
-    return result.deletedCount || 0;
+    throw new Error('Implement this');
   }
 
   /**
@@ -199,21 +140,7 @@ export default class LeaseRepository {
    * ```
    */
   async findLeaseIdsUsedByTenants(realmId: string): Promise<Set<string>> {
-    if (!realmId || typeof realmId !== 'string') {
-      throw new Error('Realm ID must be a non-empty string');
-    }
-    
-    const tenants = await TenantModel.find(
-      { realmId: realmId },
-      { leaseId: 1 }  // Project only leaseId field
-    ).lean();
-    
-    return tenants.reduce((acc, tenant: any) => {
-      if (tenant.leaseId) {
-        acc.add(tenant.leaseId.toString());
-      }
-      return acc;
-    }, new Set<string>());
+    throw new Error('Implement this');
   }
 
   /**
@@ -233,18 +160,6 @@ export default class LeaseRepository {
    * ```
    */
   async findByIds(leaseIds: string[], realmId: string): Promise<CollectionTypes.Lease[]> {
-    if (!Array.isArray(leaseIds) || leaseIds.length === 0) {
-      throw new Error('Lease IDs must be a non-empty array');
-    }
-    if (!realmId || typeof realmId !== 'string') {
-      throw new Error('Realm ID must be a non-empty string');
-    }
-    
-    const leases = await LeaseModel.find({
-      _id: { $in: leaseIds },
-      realmId: realmId
-    }).lean();
-    
-    return leases as CollectionTypes.Lease[];
+    throw new Error('Implement this');
   }
 }

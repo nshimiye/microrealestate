@@ -298,13 +298,17 @@ export default class TenantRepository {
     propertyIds: string[],
     realmId: string
   ): Promise<CollectionTypes.Tenant[]> {
-    if (!Array.isArray(propertyIds) || propertyIds.length === 0) {
-      throw new Error('Property IDs must be a non-empty array');
-    }
     if (!realmId || typeof realmId !== 'string') {
       throw new Error('Realm ID must be a non-empty string');
     }
 
+    if (!Array.isArray(propertyIds)) {
+      throw new Error('Property IDs must be a non-empty array');
+    }
+    if (propertyIds.length === 0) {
+      return [];
+    }
+    
     const tenants = await TenantModel.find({
       realmId: realmId,
       'properties.propertyId': {

@@ -63,4 +63,8 @@ export type EnvironmentValues = {
     replyToEmail: string;
     bccEmails: string;
   };
+  DYNAMODB_TABLE_NAME?: string;
+  DYNAMODB_REGION?: string;
+  DYNAMODB_ENDPOINT?: string;
+  USE_DYNAMODB?: boolean;
 };

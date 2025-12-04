@@ -1,7 +1,8 @@
 import { CollectionTypes } from '@microrealestate/types';
-import LeaseModel from '../collections/lease.js';
+import LeaseModel from '../../../collections/lease.js';
 import mongoose from 'mongoose';
-import TenantModel from '../collections/tenant.js';
+import TenantModel from '../../../collections/tenant.js';
+import {ILeaseRepository} from '../interface.js';
 
 /**
  * Repository for Lease entity operations
@@ -9,7 +10,7 @@ import TenantModel from '../collections/tenant.js';
  * Provides an abstraction layer over Mongoose Lease model,
  * returning plain JavaScript objects instead of Mongoose documents.
  */
-export default class LeaseRepository {
+export default class LeaseRepository implements ILeaseRepository {
   /**
    * Create a new lease
    * 

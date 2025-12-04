@@ -107,28 +107,10 @@ export async function remove(req, res) {
     .filter(({ linkedResourceIds }) => linkedResourceIds.length <= 1)
     .reduce((acc, { _id }) => [...acc, _id], []);
 
-  // Execute deletion within a transaction
-  const sessionManager = DataAccess.getSessionManager();
-  try {
-    await sessionManager.withTransaction(async (session) => {
-      await Promise.all([
-        leaseRepository.deleteMany(leaseIds, realm._id, session),
-        templateIdsToRemove.length > 0 
-          ? templateRepository.deleteMany(templateIdsToRemove, realm._id, session)
-          : Promise.resolve(0),
-        templateRepository.updateMany(
-          {
-            realmId: realm._id,
-            linkedResourceIds: { $in: leaseIds }
-          },
-          {
-            // remove leaseIds from linkedResourceIds
-            $pull: { linkedResourceIds: { $in: leaseIds } }
-          },
-          session
-        )
-      ]);
-    });
+    try {
+    // Execute deletion within a transaction
+    const sessionTasks = DataAccess.getSessionTasks();
+    await sessionTasks.deleteManyLeases(leaseIds, templateIdsToRemove, realm);
   } catch (error) {
     throw new ServiceError(error, 500);
   }

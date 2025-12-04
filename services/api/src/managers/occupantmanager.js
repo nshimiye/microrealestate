@@ -6,7 +6,6 @@ import {
   Service,
   ServiceError
 } from '@microrealestate/common';
-import axios from 'axios';
 import { customAlphabet } from 'nanoid';
 import moment from 'moment';
 
@@ -298,40 +297,18 @@ export async function remove(req, res) {
   }
 
   // Use SessionManager for transaction management
-  const sessionManager = DataAccess.getSessionManager();
   try {
-    // eslint-disable-next-line no-unused-vars
-    await sessionManager.withTransaction(async (session) => {
-      // Use repository to find documents
-      const documentRepository = DataAccess.getDocumentRepository();
-      const documents = await documentRepository.findByTenantIds(
-        occupantIds,
-        realm._id,
-        { _id: 1 }
-      );
-
-      // Keep PDF generator service call via axios
-      const { PDFGENERATOR_URL } = Service.getInstance().envConfig.getValues();
-      const documentsEndPoint = `${PDFGENERATOR_URL}/documents/${documents
-        .map(({ _id }) => _id)
-        .join(',')}`;
-      try {
-        await axios.delete(documentsEndPoint, {
-          headers: {
-            authorization: req.headers.authorization,
-            organizationid: req.headers.organizationid || String(req.realm._id),
-            'Accept-Language': req.headers['accept-language']
-          }
-        });
-      } catch (error) {
-        const errorMessage = error.response?.data?.message || error.message;
-        logger.error('DELETE documents failed');
-        logger.error(errorMessage);
-      }
-
-      // Use repository to delete tenants
-      await tenantRepository.deleteMany(occupantIds, realm._id);
-    });
+    const { PDFGENERATOR_URL } = Service.getInstance().envConfig.getValues();
+    const sessionTasks = DataAccess.getSessionTasks();
+    await sessionTasks.deleteManyTenants(occupantIds, {
+      realm,
+      PDFGENERATOR_URL,
+      pdfHeaders: {
+                    authorization: req.headers.authorization,
+                    organizationid: req.headers.organizationid || String(realm._id),
+                    'Accept-Language': req.headers['accept-language']
+                  }
+    })
   } catch (error) {
     throw new ServiceError(error, 500);
   }

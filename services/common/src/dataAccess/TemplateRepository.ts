@@ -227,7 +227,7 @@ export default class TemplateRepository {
 
     const result = await TemplateModel.deleteMany(
       { _id: { $in: templateIds }, realmId: realmId },
-      { session: session as any }
+      // { session: session as any }
     );
 
     return result.deletedCount || 0;
@@ -266,7 +266,7 @@ export default class TemplateRepository {
     const result = await TemplateModel.updateMany(
       filter,
       update,
-      { session: session as any }
+      // { session: session as any }
     );
 
     return result.modifiedCount || 0;
