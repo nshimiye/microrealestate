@@ -1,7 +1,7 @@
 import * as pdf from '../pdf.js';
 import * as s3 from '../utils/s3.js';
 import {
-  Collections,
+  DataAccess,
   Format,
   logger,
   Middlewares,
@@ -15,27 +15,38 @@ import moment from 'moment';
 import path from 'path';
 import uploadMiddleware from '../utils/uploadmiddelware.js';
 
-async function _getTempate(organization, templateId) {
-  const template = await Collections.Template.findOne({
-    _id: templateId,
-    realmId: organization._id
-  }).lean();
-
-  return template;
+/**
+ * Fetch template by ID and realm
+ * @private
+ * @param {Object} organization - Organization/realm object
+ * @param {string} templateId - Template ID
+ * @returns {Promise<Object|null>} Template object or null if not found
+ */
+async function _getTemplate(organization, templateId) {
+  const templateRepository = DataAccess.getTemplateRepository();
+  return await templateRepository.findById(templateId, organization._id);
 }
 
+/**
+ * Fetch and compute template values from tenant, lease, and properties
+ * @private
+ * @param {Object} organization - Organization/realm object
+ * @param {string} tenantId - Tenant ID
+ * @param {string} leaseId - Lease ID
+ * @returns {Promise<Object>} Template values object for document generation
+ */
 async function _getTemplateValues(organization, tenantId, leaseId) {
-  const tenant = await Collections.Tenant.findOne({
-    _id: tenantId,
-    realmId: organization._id
-  })
-    .populate('properties.propertyId')
-    .lean();
+  const tenantRepository = DataAccess.getTenantRepository();
+  const leaseRepository = DataAccess.getLeaseRepository();
 
-  const lease = await Collections.Lease.findOne({
-    _id: leaseId,
-    realmId: organization._id
-  }).lean();
+  // Fetch tenant with populated properties
+  const tenant = await tenantRepository.findByIdWithProperties(
+    tenantId,
+    organization._id
+  );
+
+  // Fetch lease
+  const lease = await leaseRepository.findById(leaseId, organization._id);
 
   // compute rent, expenses and surface from properties
   const PropertyGlobals = tenant.properties.reduce(
@@ -418,9 +429,8 @@ export default function () {
     Middlewares.asyncWrapper(async (req, res) => {
       const organizationId = req.headers.organizationid;
 
-      const documentsFound = await Collections.Document.find({
-        realmId: organizationId
-      });
+      const documentRepository = DataAccess.getDocumentRepository();
+      const documentsFound = await documentRepository.findAll(organizationId);
       if (!documentsFound) {
         throw new ServiceError('document not found', 404);
       }
@@ -480,10 +490,11 @@ export default function () {
         throw new ServiceError('missing fields', 422);
       }
 
-      let documentFound = await Collections.Document.findOne({
-        _id: documentId,
-        realmId: req.realm._id
-      });
+      const documentRepository = DataAccess.getDocumentRepository();
+      const documentFound = await documentRepository.findById(
+        documentId,
+        req.realm._id
+      );
 
       if (!documentFound) {
         logger.warn(`document ${documentId} not found`);
@@ -699,7 +710,7 @@ export default function () {
 
       let template;
       if (dataSet.templateId) {
-        template = await _getTempate(req.realm, dataSet.templateId);
+        template = await _getTemplate(req.realm, dataSet.templateId);
         if (!template) {
           throw new ServiceError('template not found', 404);
         }
@@ -741,8 +752,8 @@ export default function () {
         }
       }
 
-      const createdDocument =
-        await Collections.Document.create(documentToCreate);
+      const documentRepository = DataAccess.getDocumentRepository();
+      const createdDocument = await documentRepository.create(documentToCreate);
       return res.status(201).json(createdDocument);
     })
   );
@@ -808,18 +819,14 @@ export default function () {
         throw new ServiceError('document cannot be modified', 405);
       }
 
-      const updatedDocument = await Collections.Document.findOneAndUpdate(
+      const documentRepository = DataAccess.getDocumentRepository();
+      const updatedDocument = await documentRepository.update(
+        doc._id,
+        organizationId,
         {
-          _id: doc._id,
+          ...doc,
           realmId: organizationId
-        },
-        {
-          $set: {
-            ...doc,
-            realmId: organizationId
-          }
-        },
-        { new: true }
+        }
       );
 
       if (!updatedDocument) {
@@ -864,11 +871,13 @@ export default function () {
       const organizationId = req.headers.organizationid;
       const documentIds = req.params.ids.split(',');
 
+      const documentRepository = DataAccess.getDocumentRepository();
+
       // fetch documents
-      const documents = await Collections.Document.find({
-        _id: { $in: documentIds },
-        realmId: organizationId
-      });
+      const documents = await documentRepository.findByIds(
+        documentIds,
+        organizationId
+      );
 
       // delete documents from file systems
       documents.forEach((doc) => {
@@ -893,12 +902,12 @@ export default function () {
       }
 
       // delete documents from mongo
-      const result = await Collections.Document.deleteMany({
-        _id: { $in: documentIds },
-        realmId: organizationId
-      });
+      const deletedCount = await documentRepository.deleteMany(
+        documentIds,
+        organizationId
+      );
 
-      if (!result.acknowledged) {
+      if (deletedCount === 0) {
         throw new ServiceError('document not found', 404);
       }
 

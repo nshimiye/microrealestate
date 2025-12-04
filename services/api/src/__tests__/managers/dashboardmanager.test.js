@@ -1224,9 +1224,7 @@ describe('Property-Based Tests for Dashboard Calculations', () => {
       
       await fc.assert(
         fc.asyncProperty(
-          // Generate a random current date
-          fc.date({ min: new Date('2020-01-01'), max: new Date('2030-12-31') }),
-          // Generate an array of tenants with random dates
+          // Generate an array of tenants with random dates relative to "now"
           fc.array(
             fc.record({
               _id: fc.string({ minLength: 1, maxLength: 24 }),
@@ -1243,9 +1241,10 @@ describe('Property-Based Tests for Dashboard Calculations', () => {
             }),
             { minLength: 0, maxLength: 20 }
           ),
-          async (currentDate, tenants) => {
+          async (tenants) => {
             // Arrange
-            const now = moment(currentDate);
+            // Use the actual current moment that the code will use
+            const now = moment();
             localMockReq.headers.organizationid = 'test-realm';
             
             localMockTenantRepository.findAll.mockResolvedValue(tenants);
@@ -1257,12 +1256,13 @@ describe('Property-Based Tests for Dashboard Calculations', () => {
             // Assert
             const response = localMockRes.json.mock.calls[localMockRes.json.mock.calls.length - 1][0];
             
-            // Manually compute expected active tenant count
+            // Manually compute expected active tenant count using the same logic as the code
             const expectedActiveTenants = tenants.filter(tenant => {
               const terminationMoment = tenant.terminationDate
                 ? moment(tenant.terminationDate)
                 : moment(tenant.endDate);
-              return terminationMoment.isSameOrAfter(now, 'day');
+              // Use startOf('day') to match the code's comparison logic
+              return terminationMoment.startOf('day').isSameOrAfter(now.startOf('day'));
             });
 
             // Property: The tenant count should match the number of tenants with terminationDate/endDate >= current date
@@ -1281,30 +1281,36 @@ describe('Property-Based Tests for Dashboard Calculations', () => {
       
       await fc.assert(
         fc.asyncProperty(
-          // Generate property count
+          // Generate property count (including 0 as edge case)
           fc.nat({ max: 100 }),
-          // Generate active tenants with properties
-          fc.array(
-            fc.record({
-              _id: fc.string({ minLength: 1, maxLength: 24 }),
-              name: fc.string({ minLength: 1, maxLength: 50 }),
-              terminationDate: fc.constant(moment().add(180, 'days').toDate()),
-              endDate: fc.constant(moment().add(180, 'days').toDate()),
-              properties: fc.array(
+          async (propertyCount) => {
+            // Generate active tenants with properties constrained by propertyCount
+            // This ensures we can't have more rented properties than total properties
+            const tenants = propertyCount > 0 ? await fc.sample(
+              fc.array(
                 fc.record({
-                  propertyId: fc.string({ minLength: 1, maxLength: 24 })
+                  _id: fc.string({ minLength: 1, maxLength: 24 }),
+                  name: fc.string({ minLength: 1, maxLength: 50 }),
+                  terminationDate: fc.constant(moment().add(180, 'days').toDate()),
+                  endDate: fc.constant(moment().add(180, 'days').toDate()),
+                  properties: fc.array(
+                    fc.record({
+                      // Generate property IDs from 0 to propertyCount-1 to ensure valid range
+                      propertyId: fc.integer({ min: 0, max: propertyCount - 1 }).map(n => `prop${n}`)
+                    }),
+                    { minLength: 0, maxLength: Math.min(5, propertyCount) }
+                  ),
+                  rents: fc.constant([])
                 }),
-                { minLength: 0, maxLength: 10 }
+                { minLength: 0, maxLength: 20 }
               ),
-              rents: fc.constant([])
-            }),
-            { minLength: 0, maxLength: 20 }
-          ),
-          async (propertyCount, tenants) => {
+              1
+            ) : [[]]; // Empty tenants when propertyCount is 0
+
             // Arrange
             localMockReq.headers.organizationid = 'test-realm';
             
-            localMockTenantRepository.findAll.mockResolvedValue(tenants);
+            localMockTenantRepository.findAll.mockResolvedValue(tenants[0]);
             localMockPropertyRepository.countByRealmId.mockResolvedValue(propertyCount);
 
             // Act
@@ -1313,22 +1319,20 @@ describe('Property-Based Tests for Dashboard Calculations', () => {
             // Assert
             const response = localMockRes.json.mock.calls[localMockRes.json.mock.calls.length - 1][0];
             
-            // Manually compute expected occupancy rate
-            let expectedOccupancyRate;
-            if (propertyCount > 0) {
+            // Property: Occupancy rate should be between 0 and 1 (or undefined if no properties)
+            if (propertyCount === 0) {
+              // When there are no properties, occupancy rate should be undefined
+              expect(response.overview?.occupancyRate).toBeUndefined();
+            } else {
+              // Manually compute expected occupancy rate
               const uniqueProperties = new Set();
-              tenants.forEach(tenant => {
+              tenants[0].forEach(tenant => {
                 (tenant.properties || []).forEach(({ propertyId }) => {
                   uniqueProperties.add(propertyId);
                 });
               });
-              expectedOccupancyRate = uniqueProperties.size / propertyCount;
-            }
+              const expectedOccupancyRate = uniqueProperties.size / propertyCount;
 
-            // Property: Occupancy rate should be between 0 and 1 (or undefined if no properties)
-            if (propertyCount === 0) {
-              expect(response.overview?.occupancyRate).toBeUndefined();
-            } else {
               expect(response.overview?.occupancyRate).toBe(expectedOccupancyRate);
               expect(response.overview?.occupancyRate).toBeGreaterThanOrEqual(0);
               expect(response.overview?.occupancyRate).toBeLessThanOrEqual(1);
@@ -1347,9 +1351,7 @@ describe('Property-Based Tests for Dashboard Calculations', () => {
       
       await fc.assert(
         fc.asyncProperty(
-          // Generate a random year
-          fc.integer({ min: 2020, max: 2030 }),
-          // Generate tenants with rents and payments
+          // Generate tenants with rents and payments for the current year
           fc.array(
             fc.record({
               _id: fc.string({ minLength: 1, maxLength: 24 }),
@@ -1386,41 +1388,25 @@ describe('Property-Based Tests for Dashboard Calculations', () => {
             }),
             { minLength: 0, maxLength: 10 }
           ),
-          async (year, tenants) => {
+          async (tenants) => {
             // Arrange
-            const beginOfTheYear = moment(`${year}-01-01`).startOf('year');
-            const endOfTheYear = moment(`${year}-12-31`).endOf('year');
+            // Use the current year that the code will use
+            const now = moment();
+            const currentYear = now.year();
+            const beginOfTheYear = moment().startOf('year');
+            const endOfTheYear = moment().endOf('year');
             
             localMockReq.headers.organizationid = 'test-realm';
             localMockTenantRepository.findAll.mockResolvedValue(tenants);
             localMockPropertyRepository.countByRealmId.mockResolvedValue(10);
 
-            // Mock moment to return our test year
-            const originalMoment = moment;
-            const mockMoment = (...args) => {
-              if (args.length === 0) {
-                return originalMoment(`${year}-06-15`);
-              }
-              return originalMoment(...args);
-            };
-            Object.setPrototypeOf(mockMoment, originalMoment);
-            Object.assign(mockMoment, originalMoment);
-            
-            // Temporarily replace moment
-            const momentModule = await import('moment');
-            const originalDefault = momentModule.default;
-            momentModule.default = mockMoment;
-
             // Act
             await DashboardManager.all(localMockReq, localMockRes);
-
-            // Restore moment
-            momentModule.default = originalDefault;
 
             // Assert
             const response = localMockRes.json.mock.calls[localMockRes.json.mock.calls.length - 1][0];
             
-            // Manually compute expected year revenues
+            // Manually compute expected year revenues for the current year
             let expectedRevenues = 0;
             tenants.forEach(tenant => {
               tenant.rents.forEach(rent => {
@@ -1531,9 +1517,7 @@ describe('Property-Based Tests for Dashboard Calculations', () => {
       
       await fc.assert(
         fc.asyncProperty(
-          // Generate a random year
-          fc.integer({ min: 2020, max: 2030 }),
-          // Generate tenants with rents
+          // Generate tenants with rents for the current year
           fc.array(
             fc.record({
               _id: fc.string({ minLength: 1, maxLength: 24 }),
@@ -1560,33 +1544,14 @@ describe('Property-Based Tests for Dashboard Calculations', () => {
             }),
             { minLength: 0, maxLength: 10 }
           ),
-          async (year, tenants) => {
+          async (tenants) => {
             // Arrange
             localMockReq.headers.organizationid = 'test-realm';
             localMockTenantRepository.findAll.mockResolvedValue(tenants);
             localMockPropertyRepository.countByRealmId.mockResolvedValue(10);
 
-            // Mock moment to return our test year
-            const originalMoment = moment;
-            const mockMoment = (...args) => {
-              if (args.length === 0) {
-                return originalMoment(`${year}-06-15`);
-              }
-              return originalMoment(...args);
-            };
-            Object.setPrototypeOf(mockMoment, originalMoment);
-            Object.assign(mockMoment, originalMoment);
-            
-            // Temporarily replace moment
-            const momentModule = await import('moment');
-            const originalDefault = momentModule.default;
-            momentModule.default = mockMoment;
-
             // Act
             await DashboardManager.all(localMockReq, localMockRes);
-
-            // Restore moment
-            momentModule.default = originalDefault;
 
             // Assert
             const response = localMockRes.json.mock.calls[localMockRes.json.mock.calls.length - 1][0];

@@ -1,4 +1,4 @@
-import { Collections, logger } from '@microrealestate/common';
+import { DataAccess, logger } from '@microrealestate/common';
 import moment from 'moment';
 
 export async function getRentsData(params) {
@@ -6,10 +6,8 @@ export async function getRentsData(params) {
 
   let dbTenant;
   try {
-    dbTenant = await Collections.Tenant.findOne({ _id: tenantId })
-      .populate('realmId')
-      .populate('leaseId')
-      .populate('properties.propertyId');
+    const tenantRepository = DataAccess.getTenantRepository();
+    dbTenant = await tenantRepository.findByIdWithAllReferences(tenantId);
   } catch (error) {
     logger.error(error);
   }

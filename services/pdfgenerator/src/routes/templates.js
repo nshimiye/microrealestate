@@ -1,5 +1,5 @@
 import {
-  Collections,
+  DataAccess,
   logger,
   Middlewares,
   Service,
@@ -155,9 +155,8 @@ export default function () {
     Middlewares.asyncWrapper(async (req, res) => {
       const organizationId = req.headers.organizationid;
 
-      const templatesFound = await Collections.Template.find({
-        realmId: organizationId
-      });
+      const templateRepository = DataAccess.getTemplateRepository();
+      const templatesFound = await templateRepository.findAll(organizationId);
       if (!templatesFound) {
         throw new ServiceError('templates not found', 404);
       }
@@ -209,10 +208,11 @@ export default function () {
         throw new ServiceError('missing fields', 422);
       }
 
-      let templateFound = await Collections.Template.findOne({
-        _id: templateId,
-        realmId: req.realm._id
-      });
+      const templateRepository = DataAccess.getTemplateRepository();
+      const templateFound = await templateRepository.findById(
+        templateId,
+        req.realm._id
+      );
 
       if (!templateFound) {
         throw new ServiceError('template not found', 404);
@@ -308,7 +308,9 @@ export default function () {
         required,
         requiredOnceContractTerminated
       } = req.body || {};
-      const createdTemplate = await Collections.Template.create({
+
+      const templateRepository = DataAccess.getTemplateRepository();
+      const createdTemplate = await templateRepository.create({
         realmId: organizationId,
         name,
         type,
@@ -376,16 +378,14 @@ export default function () {
       }
 
       const template = req.body || {};
-      const updatedTemplate = await Collections.Template.findOneAndReplace(
-        {
-          _id: template._id,
-          realmId: organizationId
-        },
+      const templateRepository = DataAccess.getTemplateRepository();
+      const updatedTemplate = await templateRepository.replace(
+        template._id,
+        organizationId,
         {
           ...template,
           realmId: organizationId
-        },
-        { new: true }
+        }
       );
 
       if (!updatedTemplate) {
@@ -429,12 +429,14 @@ export default function () {
     Middlewares.asyncWrapper(async (req, res) => {
       const organizationId = req.headers.organizationid;
       const templateIds = req.params.ids.split(',');
-      const result = await Collections.Template.deleteMany({
-        _id: { $in: templateIds },
-        realmId: organizationId
-      });
+      
+      const templateRepository = DataAccess.getTemplateRepository();
+      const deletedCount = await templateRepository.deleteMany(
+        templateIds,
+        organizationId
+      );
 
-      if (!result.acknowledged) {
+      if (deletedCount === 0) {
         throw new ServiceError('template not found', 404);
       }
 

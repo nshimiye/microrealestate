@@ -431,6 +431,307 @@ describe('TemplateRepository', () => {
   // ============================================================================
 
   describe('Unit Tests', () => {
+    describe('findAll()', () => {
+      it('should return all templates in a realm', async () => {
+        await TemplateModel.create([
+          {
+            realmId: 'test-realm',
+            name: 'Template 1',
+            type: 'text',
+            linkedResourceIds: []
+          },
+          {
+            realmId: 'test-realm',
+            name: 'Template 2',
+            type: 'text',
+            linkedResourceIds: []
+          },
+          {
+            realmId: 'other-realm',
+            name: 'Template 3',
+            type: 'text',
+            linkedResourceIds: []
+          }
+        ]);
+
+        const templates = await templateRepository.findAll('test-realm');
+
+        expect(templates.length).toBe(2);
+        expect(templates.find(t => t.name === 'Template 1')).toBeDefined();
+        expect(templates.find(t => t.name === 'Template 2')).toBeDefined();
+        expect(templates.find(t => t.name === 'Template 3')).toBeUndefined();
+      });
+
+      it('should return empty array if no templates exist', async () => {
+        const templates = await templateRepository.findAll('non-existent-realm');
+        expect(templates.length).toBe(0);
+      });
+
+      it('should throw error if realmId is invalid', async () => {
+        await expect(
+          templateRepository.findAll('')
+        ).rejects.toThrow('Realm ID must be a non-empty string');
+      });
+
+      it('should return plain objects', async () => {
+        await TemplateModel.create({
+          realmId: 'test-realm',
+          name: 'Test Template',
+          type: 'text',
+          linkedResourceIds: []
+        });
+
+        const templates = await templateRepository.findAll('test-realm');
+        expect(templates.length).toBe(1);
+        
+        // Should not have Mongoose methods
+        expect((templates[0] as any).save).toBeUndefined();
+        expect((templates[0] as any).$isNew).toBeUndefined();
+        expect((templates[0] as any).toObject).toBeUndefined();
+      });
+    });
+
+    describe('findById()', () => {
+      it('should return template by ID and realm', async () => {
+        const doc = await TemplateModel.create({
+          realmId: 'test-realm',
+          name: 'Test Template',
+          type: 'text',
+          description: 'Test description',
+          linkedResourceIds: []
+        });
+
+        const template = await templateRepository.findById(
+          doc._id.toString(),
+          'test-realm'
+        );
+
+        expect(template).toBeDefined();
+        expect(template?.name).toBe('Test Template');
+        expect(template?.description).toBe('Test description');
+      });
+
+      it('should return null if template not found', async () => {
+        const template = await templateRepository.findById(
+          '507f1f77bcf86cd799439011',
+          'test-realm'
+        );
+
+        expect(template).toBeNull();
+      });
+
+      it('should return null if realm does not match', async () => {
+        const doc = await TemplateModel.create({
+          realmId: 'test-realm',
+          name: 'Test Template',
+          type: 'text',
+          linkedResourceIds: []
+        });
+
+        const template = await templateRepository.findById(
+          doc._id.toString(),
+          'other-realm'
+        );
+
+        expect(template).toBeNull();
+      });
+
+      it('should throw error if templateId is invalid', async () => {
+        await expect(
+          templateRepository.findById('', 'test-realm')
+        ).rejects.toThrow('Template ID must be a non-empty string');
+      });
+
+      it('should throw error if realmId is invalid', async () => {
+        await expect(
+          templateRepository.findById('507f1f77bcf86cd799439011', '')
+        ).rejects.toThrow('Realm ID must be a non-empty string');
+      });
+
+      it('should return plain object', async () => {
+        const doc = await TemplateModel.create({
+          realmId: 'test-realm',
+          name: 'Test Template',
+          type: 'text',
+          linkedResourceIds: []
+        });
+
+        const template = await templateRepository.findById(
+          doc._id.toString(),
+          'test-realm'
+        );
+
+        expect(template).toBeDefined();
+        // Should not have Mongoose methods
+        expect((template as any)?.save).toBeUndefined();
+        expect((template as any)?.$isNew).toBeUndefined();
+        expect((template as any)?.toObject).toBeUndefined();
+      });
+    });
+
+    describe('create()', () => {
+      it('should create a new template', async () => {
+        const templateData = {
+          realmId: 'test-realm',
+          name: 'New Template',
+          type: 'text' as const,
+          description: 'Test description',
+          linkedResourceIds: ['lease-1']
+        };
+
+        const template = await templateRepository.create(templateData);
+
+        expect(template).toBeDefined();
+        expect(template.name).toBe('New Template');
+        expect(template.description).toBe('Test description');
+        expect(template.realmId).toBe('test-realm');
+
+        // Verify it was saved to database
+        const found = await TemplateModel.findById(template._id);
+        expect(found).toBeDefined();
+        expect(found?.name).toBe('New Template');
+      });
+
+      it('should throw error if templateData is invalid', async () => {
+        await expect(
+          templateRepository.create(null as any)
+        ).rejects.toThrow('Template data must be an object');
+      });
+
+      it('should throw error if realmId is missing', async () => {
+        await expect(
+          templateRepository.create({ name: 'Test' } as any)
+        ).rejects.toThrow('Template data must include realmId');
+      });
+
+      it('should return plain object', async () => {
+        const templateData = {
+          realmId: 'test-realm',
+          name: 'New Template',
+          type: 'text' as const,
+          linkedResourceIds: []
+        };
+
+        const template = await templateRepository.create(templateData);
+
+        // Should not have Mongoose methods
+        expect((template as any).save).toBeUndefined();
+        expect((template as any).$isNew).toBeUndefined();
+        expect((template as any).toObject).toBeUndefined();
+      });
+    });
+
+    describe('replace()', () => {
+      it('should replace an existing template', async () => {
+        const doc = await TemplateModel.create({
+          realmId: 'test-realm',
+          name: 'Original Template',
+          type: 'text',
+          description: 'Original description',
+          linkedResourceIds: ['lease-1']
+        });
+
+        const newData = {
+          realmId: 'test-realm',
+          name: 'Replaced Template',
+          type: 'fileDescriptor' as const,
+          description: 'New description',
+          linkedResourceIds: ['lease-2']
+        };
+
+        const replaced = await templateRepository.replace(
+          doc._id.toString(),
+          'test-realm',
+          newData
+        );
+
+        expect(replaced).toBeDefined();
+        expect(replaced?.name).toBe('Replaced Template');
+        expect(replaced?.type).toBe('fileDescriptor');
+        expect(replaced?.description).toBe('New description');
+        expect(replaced?.linkedResourceIds).toContain('lease-2');
+        expect(replaced?.linkedResourceIds).not.toContain('lease-1');
+      });
+
+      it('should return null if template not found', async () => {
+        const replaced = await templateRepository.replace(
+          '507f1f77bcf86cd799439011',
+          'test-realm',
+          {
+            realmId: 'test-realm',
+            name: 'Test',
+            type: 'text'
+          }
+        );
+
+        expect(replaced).toBeNull();
+      });
+
+      it('should return null if realm does not match', async () => {
+        const doc = await TemplateModel.create({
+          realmId: 'test-realm',
+          name: 'Test Template',
+          type: 'text',
+          linkedResourceIds: []
+        });
+
+        const replaced = await templateRepository.replace(
+          doc._id.toString(),
+          'other-realm',
+          {
+            realmId: 'other-realm',
+            name: 'Test',
+            type: 'text'
+          }
+        );
+
+        expect(replaced).toBeNull();
+      });
+
+      it('should throw error if templateId is invalid', async () => {
+        await expect(
+          templateRepository.replace('', 'test-realm', { realmId: 'test-realm' })
+        ).rejects.toThrow('Template ID must be a non-empty string');
+      });
+
+      it('should throw error if realmId is invalid', async () => {
+        await expect(
+          templateRepository.replace('507f1f77bcf86cd799439011', '', { realmId: 'test' })
+        ).rejects.toThrow('Realm ID must be a non-empty string');
+      });
+
+      it('should throw error if templateData is invalid', async () => {
+        await expect(
+          templateRepository.replace('507f1f77bcf86cd799439011', 'test-realm', null as any)
+        ).rejects.toThrow('Template data must be an object');
+      });
+
+      it('should return plain object', async () => {
+        const doc = await TemplateModel.create({
+          realmId: 'test-realm',
+          name: 'Test Template',
+          type: 'text',
+          linkedResourceIds: []
+        });
+
+        const replaced = await templateRepository.replace(
+          doc._id.toString(),
+          'test-realm',
+          {
+            realmId: 'test-realm',
+            name: 'Replaced',
+            type: 'text'
+          }
+        );
+
+        expect(replaced).toBeDefined();
+        // Should not have Mongoose methods
+        expect((replaced as any)?.save).toBeUndefined();
+        expect((replaced as any)?.$isNew).toBeUndefined();
+        expect((replaced as any)?.toObject).toBeUndefined();
+      });
+    });
+
     describe('findByLinkedResources()', () => {
       it('should return correct templates', async () => {
         const lease1Id = 'lease-1';

@@ -707,4 +707,89 @@ return TenantModel.aggregate([
     const tenants = await TenantModel.find({ realmId }).lean();
     return tenants as CollectionTypes.Tenant[];
   }
+
+  /**
+   * Find tenant by ID and realm with populated properties
+   * 
+   * Returns a tenant with the propertyId references in the properties array
+   * populated with full property documents. This is useful when you need
+   * complete property information for template generation or reporting.
+   * 
+   * @param tenantId - Tenant ID
+   * @param realmId - Realm ID for security filtering
+   * @returns Tenant object with populated properties or null if not found
+   * @throws Error if tenantId or realmId is invalid
+   * 
+   * @example
+   * ```typescript
+   * const tenant = await tenantRepository.findByIdWithProperties(
+   *   '507f1f77bcf86cd799439011',
+   *   '507f1f77bcf86cd799439012'
+   * );
+   * if (tenant) {
+   *   tenant.properties.forEach(prop => {
+   *     console.log(prop.propertyId.name); // Access populated property data
+   *   });
+   * }
+   * ```
+   */
+  async findByIdWithProperties(
+    tenantId: string,
+    realmId: string
+  ): Promise<CollectionTypes.Tenant | null> {
+    if (!tenantId || typeof tenantId !== 'string') {
+      throw new Error('Tenant ID must be a non-empty string');
+    }
+    if (!realmId || typeof realmId !== 'string') {
+      throw new Error('Realm ID must be a non-empty string');
+    }
+
+    const tenant = await TenantModel.findOne({
+      _id: tenantId,
+      realmId: realmId
+    })
+      .populate('properties.propertyId')
+      .lean();
+
+    return tenant as CollectionTypes.Tenant | null;
+  }
+
+  /**
+   * Find tenant by ID with all references populated (realm, lease, properties)
+   * 
+   * Returns a tenant with realmId, leaseId, and properties.propertyId references
+   * all populated with full documents. This is used for PDF generation where
+   * complete landlord, lease, and property information is needed.
+   * 
+   * @param tenantId - Tenant ID
+   * @returns Tenant object with all references populated or null if not found
+   * @throws Error if tenantId is invalid
+   * 
+   * @example
+   * ```typescript
+   * const tenant = await tenantRepository.findByIdWithAllReferences('507f1f77bcf86cd799439011');
+   * if (tenant) {
+   *   console.log(tenant.realmId.name); // Access populated realm data
+   *   console.log(tenant.leaseId.name); // Access populated lease data
+   *   tenant.properties.forEach(prop => {
+   *     console.log(prop.propertyId.name); // Access populated property data
+   *   });
+   * }
+   * ```
+   */
+  async findByIdWithAllReferences(
+    tenantId: string
+  ): Promise<CollectionTypes.Tenant | null> {
+    if (!tenantId || typeof tenantId !== 'string') {
+      throw new Error('Tenant ID must be a non-empty string');
+    }
+
+    const tenant = await TenantModel.findOne({ _id: tenantId })
+      .populate('realmId')
+      .populate('leaseId')
+      .populate('properties.propertyId')
+      .lean();
+
+    return tenant as CollectionTypes.Tenant | null;
+  }
 }

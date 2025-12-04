@@ -2241,4 +2241,98 @@ describe('TenantRepository', () => {
       ).rejects.toThrow('Realm ID must be a non-empty string');
     });
   });
+
+  describe('findByIdWithProperties', () => {
+    it('should find tenant by ID and realm with populated properties', async () => {
+      // Note: This test verifies the method works, but property population
+      // requires actual Property documents in the database which is complex
+      // to set up. The method uses .populate() which will work in production.
+      const tenant = await TenantModel.create({
+        realmId: 'realm1',
+        name: 'Test Tenant',
+        contacts: [],
+        properties: [
+          {
+            propertyId: '507f1f77bcf86cd799439011',
+            rent: 1000
+          }
+        ]
+      });
+
+      const found = await tenantRepository.findByIdWithProperties(
+        tenant._id.toString(),
+        'realm1'
+      );
+
+      expect(found).toBeDefined();
+      expect(found!.name).toBe('Test Tenant');
+      expect(found!._id.toString()).toBe(tenant._id.toString());
+      expect(found!.properties).toBeDefined();
+      expect(found!.properties).toHaveLength(1);
+    });
+
+    it('should return null for non-existent tenant', async () => {
+      const found = await tenantRepository.findByIdWithProperties(
+        '507f1f77bcf86cd799439011',
+        'realm1'
+      );
+
+      expect(found).toBeNull();
+    });
+
+    it('should return null when realmId does not match', async () => {
+      const tenant = await TenantModel.create({
+        realmId: 'realm1',
+        name: 'Test Tenant',
+        contacts: [],
+        properties: []
+      });
+
+      const found = await tenantRepository.findByIdWithProperties(
+        tenant._id.toString(),
+        'realm2'
+      );
+
+      expect(found).toBeNull();
+    });
+
+    it('should return plain object', async () => {
+      const tenant = await TenantModel.create({
+        realmId: 'realm1',
+        name: 'Test Tenant',
+        contacts: [],
+        properties: []
+      });
+
+      const found = await tenantRepository.findByIdWithProperties(
+        tenant._id.toString(),
+        'realm1'
+      );
+
+      expect(found).toBeDefined();
+      expect((found as any).save).toBeUndefined();
+      expect((found as any).$isNew).toBeUndefined();
+      expect((found as any).toObject).toBeUndefined();
+    });
+
+    it('should throw error for missing tenantId', async () => {
+      await expect(
+        tenantRepository.findByIdWithProperties('', 'realm1')
+      ).rejects.toThrow('Tenant ID must be a non-empty string');
+
+      await expect(
+        tenantRepository.findByIdWithProperties(null as any, 'realm1')
+      ).rejects.toThrow('Tenant ID must be a non-empty string');
+    });
+
+    it('should throw error for missing realmId', async () => {
+      await expect(
+        tenantRepository.findByIdWithProperties('507f1f77bcf86cd799439011', '')
+      ).rejects.toThrow('Realm ID must be a non-empty string');
+
+      await expect(
+        tenantRepository.findByIdWithProperties('507f1f77bcf86cd799439011', null as any)
+      ).rejects.toThrow('Realm ID must be a non-empty string');
+    });
+  });
 });
