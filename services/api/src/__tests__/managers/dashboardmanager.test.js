@@ -1,8 +1,8 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
 import * as DashboardManager from '../../managers/dashboardmanager.js';
+import * as fc from 'fast-check';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DataAccess } from '@microrealestate/common';
 import moment from 'moment';
-import * as fc from 'fast-check';
 
 describe('DashboardManager - all function', () => {
   let mockTenantRepository;
@@ -1391,8 +1391,6 @@ describe('Property-Based Tests for Dashboard Calculations', () => {
           async (tenants) => {
             // Arrange
             // Use the current year that the code will use
-            const now = moment();
-            const currentYear = now.year();
             const beginOfTheYear = moment().startOf('year');
             const endOfTheYear = moment().endOf('year');
             

@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import * as fc from 'fast-check';
-import { Collections, TestUtils } from '@microrealestate/common';
 import * as propertyManager from '../../managers/propertymanager.js';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { Collections, TestUtils } from '@microrealestate/common';
 
 const { connectTestDB, disconnectTestDB, clearTestDB } = TestUtils;
 
@@ -175,7 +175,7 @@ describe('PropertyManager', () => {
         price: 1200
       });
 
-      const property2 = await Collections.Property.create({
+      await Collections.Property.create({
         realmId: '507f1f77bcf86cd799439011',
         type: 'office',
         name: 'Property B',

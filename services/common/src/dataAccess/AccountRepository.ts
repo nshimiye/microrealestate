@@ -1,5 +1,5 @@
-import { CollectionTypes } from '@microrealestate/types';
 import AccountModel from '../collections/account.js';
+import { CollectionTypes } from '@microrealestate/types';
 
 /**
  * Repository for Account entity operations

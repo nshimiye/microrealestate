@@ -1,8 +1,12 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import * as fc from 'fast-check';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+
+import { clearTestDB, connectTestDB, disconnectTestDB, supportsTransactions } from './testSetup.js';
+
 import SessionManager from '../../dataAccess/SessionManager.js';
 import TenantModel from '../../collections/tenant.js';
-import { connectTestDB, disconnectTestDB, clearTestDB, supportsTransactions } from './testSetup.js';
 
 describe('SessionManager', () => {
   let sessionManager: SessionManager;

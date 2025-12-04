@@ -1,6 +1,6 @@
 import { CollectionTypes } from '@microrealestate/types';
-import TemplateModel from '../collections/template.js';
 import mongoose from 'mongoose';
+import TemplateModel from '../collections/template.js';
 
 /**
  * Repository for Template entity operations

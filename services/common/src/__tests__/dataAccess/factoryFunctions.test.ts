@@ -1,12 +1,14 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
+
 import {
   getAccountRepository,
-  getTenantRepository,
   getRealmRepository,
+  getTenantRepository,
 } from '../../dataAccess/index.js';
+
 import AccountRepository from '../../dataAccess/AccountRepository.js';
-import TenantRepository from '../../dataAccess/TenantRepository.js';
 import RealmRepository from '../../dataAccess/RealmRepository.js';
+import TenantRepository from '../../dataAccess/TenantRepository.js';
 
 describe('Repository Factory Functions', () => {
   describe('getAccountRepository', () => {

@@ -5,8 +5,8 @@
  * using the DataAccess namespace.
  */
 
-import { describe, it, expect } from 'vitest';
 import * as DataAccess from '../../dataAccess/index.js';
+import { describe, expect, it } from 'vitest';
 
 describe('DataAccess Package Exports', () => {
   it('should export getLeaseRepository from DataAccess namespace', () => {

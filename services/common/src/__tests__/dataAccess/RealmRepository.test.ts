@@ -1,9 +1,13 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import * as fc from 'fast-check';
-import RealmRepository from '../../dataAccess/RealmRepository.js';
-import RealmModel from '../../collections/realm.js';
-import { connectTestDB, disconnectTestDB, clearTestDB } from './testSetup.js';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+
+import { clearTestDB, connectTestDB, disconnectTestDB } from './testSetup.js';
+
 import { Locale } from '@microrealestate/types';
+import RealmModel from '../../collections/realm.js';
+import RealmRepository from '../../dataAccess/RealmRepository.js';
 
 // Generator for valid realm data
 const realmDataArbitrary = fc.record({
@@ -291,7 +295,6 @@ describe('RealmRepository', () => {
           async (initialData, newApps) => {
             // Create initial realm (may have existing apps)
             const created = await realmRepository.create(initialData);
-            const existingAppCount = created.applications.length;
 
             // Store original secrets of new apps
             const originalSecrets = newApps.map(app => app.clientSecret);

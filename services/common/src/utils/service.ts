@@ -11,7 +11,6 @@ import Express from 'express';
 import expressWinston from 'express-winston';
 import httpInterceptors from './httpinterceptors.js';
 import jwt from 'jsonwebtoken';
-import { Middlewares } from '../index.js';
 import MongoClient from './mongoclient.js';
 import mongoSanitize from 'express-mongo-sanitize';
 import RedisClient from './redisclient.js';

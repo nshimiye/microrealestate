@@ -1,10 +1,12 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import * as fc from 'fast-check';
-import TemplateRepository from '../../dataAccess/TemplateRepository.js';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+
+import { clearTestDB, connectTestDB, disconnectTestDB } from './testSetup.js';
+
 import LeaseModel from '../../collections/lease.js';
 import TemplateModel from '../../collections/template.js';
-import { connectTestDB, disconnectTestDB, clearTestDB } from './testSetup.js';
-import { CollectionTypes } from '@microrealestate/types';
+import TemplateRepository from '../../dataAccess/TemplateRepository.js';
 
 // Generator for valid template data
 const templateDataArbitrary = fc.record({
@@ -74,7 +76,7 @@ describe('TemplateRepository', () => {
             );
             
             // Create templates linked to some leases
-            const templates = await Promise.all(
+            await Promise.all(
               templatesData.map((data, idx) => {
                 // Link each template to a subset of leases
                 const linkedLeases = leases.slice(0, idx + 1);
@@ -177,7 +179,7 @@ describe('TemplateRepository', () => {
             await TemplateModel.deleteMany({});
             
             // Create templates with linkedResourceIds
-            const templates = await Promise.all(
+            await Promise.all(
               templatesData.map(data => 
                 TemplateModel.create({
                   ...data,
@@ -227,7 +229,7 @@ describe('TemplateRepository', () => {
             await TemplateModel.deleteMany({});
             
             // Create template
-            const template = await TemplateModel.create({
+            await TemplateModel.create({
               ...templateData,
               realmId,
               linkedResourceIds: leaseIds

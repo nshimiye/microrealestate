@@ -1,7 +1,7 @@
 import { CollectionTypes } from '@microrealestate/types';
 import LeaseModel from '../collections/lease.js';
-import TenantModel from '../collections/tenant.js';
 import mongoose from 'mongoose';
+import TenantModel from '../collections/tenant.js';
 
 /**
  * Repository for Lease entity operations

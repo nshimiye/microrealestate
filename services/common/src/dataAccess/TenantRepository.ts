@@ -1,6 +1,8 @@
+
 import { CollectionTypes } from '@microrealestate/types';
-import TenantModel from '../collections/tenant.js';
+
 import { ObjectId } from '../collections/index.js';
+import TenantModel from '../collections/tenant.js';
 
 
 

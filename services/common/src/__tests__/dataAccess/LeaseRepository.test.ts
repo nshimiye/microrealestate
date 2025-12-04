@@ -1,11 +1,15 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import * as fc from 'fast-check';
-import LeaseRepository from '../../dataAccess/LeaseRepository.js';
-import TemplateRepository from '../../dataAccess/TemplateRepository.js';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+
+import { clearTestDB, connectTestDB, disconnectTestDB, supportsTransactions } from './testSetup.js';
+
 import LeaseModel from '../../collections/lease.js';
-import TenantModel from '../../collections/tenant.js';
+import LeaseRepository from '../../dataAccess/LeaseRepository.js';
 import TemplateModel from '../../collections/template.js';
-import { connectTestDB, disconnectTestDB, clearTestDB, supportsTransactions } from './testSetup.js';
+import TemplateRepository from '../../dataAccess/TemplateRepository.js';
+import TenantModel from '../../collections/tenant.js';
 
 // Generator for valid lease data
 const leaseDataArbitrary = fc.record({
@@ -16,21 +20,6 @@ const leaseDataArbitrary = fc.record({
   timeRange: fc.constantFrom('days', 'weeks', 'months', 'years'),
   active: fc.boolean(),
   stepperMode: fc.boolean()
-});
-
-// Generator for tenant data with leaseId
-const tenantWithLeaseArbitrary = (realmId: string, leaseId: string) => fc.record({
-  realmId: fc.constant(realmId),
-  leaseId: fc.constant(leaseId),
-  name: fc.string({ minLength: 1, maxLength: 100 }).filter(s => s.trim().length > 0),
-  contacts: fc.array(
-    fc.record({
-      contact: fc.string({ minLength: 1, maxLength: 50 }),
-      phone: fc.string({ minLength: 1, maxLength: 20 }),
-      email: fc.emailAddress()
-    }),
-    { minLength: 1, maxLength: 3 }
-  )
 });
 
 describe('LeaseRepository', () => {

@@ -14,13 +14,13 @@
  */
 
 import AccountRepository from './AccountRepository.js';
-import TenantRepository from './TenantRepository.js';
-import RealmRepository from './RealmRepository.js';
-import PropertyRepository from './PropertyRepository.js';
 import DocumentRepository from './DocumentRepository.js';
 import LeaseRepository from './LeaseRepository.js';
-import TemplateRepository from './TemplateRepository.js';
+import PropertyRepository from './PropertyRepository.js';
+import RealmRepository from './RealmRepository.js';
 import SessionManager from './SessionManager.js';
+import TemplateRepository from './TemplateRepository.js';
+import TenantRepository from './TenantRepository.js';
 
 // Singleton instances
 let accountRepositoryInstance: AccountRepository | null = null;

@@ -1,8 +1,10 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import * as fc from 'fast-check';
 import * as RentManager from '../../managers/rentmanager.js';
-import { DataAccess, Collections, Service, EnvironmentConfig, TestUtils } from '@microrealestate/common';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { Collections, DataAccess, EnvironmentConfig, Service, TestUtils } from '@microrealestate/common';
+
 const { connectTestDB, disconnectTestDB, clearTestDB } = TestUtils;
+
 
 describe('RentManager - _findOccupants integration (via rentsOfOccupant)', () => {
   let tenantRepository;
@@ -57,7 +59,7 @@ describe('RentManager - _findOccupants integration (via rentsOfOccupant)', () =>
       rents: []
     });
 
-    const tenant2 = await Collections.Tenant.create({
+    await Collections.Tenant.create({
       realmId: testRealm._id,
       name: 'Alpha Tenant',
       beginDate: '2024-01-01',
@@ -66,7 +68,7 @@ describe('RentManager - _findOccupants integration (via rentsOfOccupant)', () =>
       rents: []
     });
 
-    const tenant3 = await Collections.Tenant.create({
+    await Collections.Tenant.create({
       realmId: testRealm._id,
       name: 'Beta Tenant',
       beginDate: '2024-01-01',
@@ -112,7 +114,7 @@ describe('RentManager - _findOccupants integration (via rentsOfOccupant)', () =>
       rents: []
     });
 
-    const tenant2 = await Collections.Tenant.create({
+    await Collections.Tenant.create({
       realmId: testRealm._id,
       name: 'Other Tenant',
       beginDate: '2024-01-01',
@@ -292,7 +294,7 @@ describe('RentManager - _findOccupants integration (via rentsOfOccupant)', () =>
 
   it('should verify rents are filtered by term', async () => {
     // Arrange - Test term filtering through repository
-    const tenant = await Collections.Tenant.create({
+    await Collections.Tenant.create({
       realmId: testRealm._id,
       name: 'Test Tenant',
       beginDate: '2024-01-01',
@@ -334,7 +336,6 @@ describe('RentManager - _findOccupants integration (via rentsOfOccupant)', () =>
 });
 
 describe('RentManager - Property-Based Tests', () => {
-  let tenantRepository;
   let testRealm;
 
   beforeAll(async () => {
@@ -348,8 +349,6 @@ describe('RentManager - Property-Based Tests', () => {
       EMAILER_URL: 'http://localhost:8400'
     });
     Service.getInstance(envConfig);
-    
-    tenantRepository = DataAccess.getTenantRepository();
   });
 
   afterAll(async () => {

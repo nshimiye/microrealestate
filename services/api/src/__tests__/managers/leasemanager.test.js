@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { Collections, DataAccess, TestUtils } from '@microrealestate/common';
 import * as leaseManager from '../../managers/leasemanager.js';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { Collections, DataAccess, TestUtils } from '@microrealestate/common';
 
 const { connectTestDB, disconnectTestDB, clearTestDB, supportsTransactions } = TestUtils;
 
@@ -96,8 +96,6 @@ describe('LeaseManager - add() function with repositories', () => {
   });
 
   it('should calculate active status correctly', async () => {
-    const realmId = '507f1f77bcf86cd799439011';
-    
     // Test with all required fields for active
     const activeLeaseData = {
       name: 'Active Lease',
@@ -892,7 +890,7 @@ describe('LeaseManager - all() function with repositories', () => {
       active: true
     });
     
-    const unusedLease = await leaseRepository.create({
+    await leaseRepository.create({
       realmId,
       name: 'Unused Lease',
       numberOfTerms: 6,

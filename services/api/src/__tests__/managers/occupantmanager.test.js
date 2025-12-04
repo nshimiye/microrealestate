@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { Collections, DataAccess, TestUtils, Service, EnvironmentConfig } from '@microrealestate/common';
 import * as occupantManager from '../../managers/occupantmanager.js';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { Collections, DataAccess, EnvironmentConfig, Service, TestUtils } from '@microrealestate/common';
 
 const { connectTestDB, disconnectTestDB, clearTestDB } = TestUtils;
 
@@ -59,7 +59,7 @@ describe('OccupantManager - _buildPropertyMap refactoring', () => {
     // Create test properties using PropertyRepository
     const propertyRepository = DataAccess.getPropertyRepository();
     
-    const property1 = await propertyRepository.create({
+    await propertyRepository.create({
       realmId,
       name: 'Property 1',
       type: 'apartment',
@@ -67,7 +67,7 @@ describe('OccupantManager - _buildPropertyMap refactoring', () => {
       price: 1200
     });
     
-    const property2 = await propertyRepository.create({
+    await propertyRepository.create({
       realmId,
       name: 'Property 2',
       type: 'house',
@@ -218,8 +218,6 @@ describe('OccupantManager - add() function refactoring', () => {
   });
 
   it('should generate reference code if not provided', async () => {
-    const realmId = '507f1f77bcf86cd799439011';
-    
     const tenantData = {
       name: 'Jane Smith',
       isCompany: false,
@@ -239,8 +237,6 @@ describe('OccupantManager - add() function refactoring', () => {
   });
 
   it('should format company tenant correctly', async () => {
-    const realmId = '507f1f77bcf86cd799439011';
-    
     const tenantData = {
       company: 'ACME Corp',
       isCompany: true,
@@ -1244,7 +1240,7 @@ describe('OccupantManager - one() function refactoring', () => {
     });
     
     // Create a file descriptor template linked to the lease
-    const template = await Collections.Template.create({
+    await Collections.Template.create({
       realmId,
       name: 'Insurance Certificate',
       type: 'fileDescriptor',
@@ -1300,7 +1296,7 @@ describe('OccupantManager - one() function refactoring', () => {
     });
     
     // Create a required file descriptor template
-    const template = await Collections.Template.create({
+    await Collections.Template.create({
       realmId,
       name: 'ID Document',
       type: 'fileDescriptor',

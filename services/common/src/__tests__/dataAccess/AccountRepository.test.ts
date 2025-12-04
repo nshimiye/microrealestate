@@ -1,9 +1,13 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import * as fc from 'fast-check';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import * as bcrypt from 'bcrypt';
+import * as fc from 'fast-check';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+
+import { clearTestDB, connectTestDB, disconnectTestDB } from './testSetup.js';
+
 import AccountRepository from '../../dataAccess/AccountRepository.js';
 import RealmModel from '../../collections/realm.js';
-import { connectTestDB, disconnectTestDB, clearTestDB } from './testSetup.js';
 
 // Generator for valid account data (non-whitespace strings)
 const accountDataArbitrary = fc.record({

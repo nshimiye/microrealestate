@@ -1,8 +1,8 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
-import { Collections, DataAccess, TestUtils, Service, EnvironmentConfig } from '@microrealestate/common';
 import * as emailManager from '../../managers/emailmanager.js';
-import fc from 'fast-check';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { DataAccess, EnvironmentConfig, Service, TestUtils } from '@microrealestate/common';
 import axios from 'axios';
+import fc from 'fast-check';
 
 const { connectTestDB, disconnectTestDB, clearTestDB } = TestUtils;
 

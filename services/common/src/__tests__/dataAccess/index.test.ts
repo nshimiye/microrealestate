@@ -5,16 +5,16 @@
  * and return singleton instances.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  getLeaseRepository,
-  getTemplateRepository,
   getAccountRepository,
-  getTenantRepository,
-  getRealmRepository,
-  getPropertyRepository,
   getDocumentRepository,
+  getLeaseRepository,
+  getPropertyRepository,
+  getRealmRepository,
   getSessionManager,
+  getTemplateRepository,
+  getTenantRepository,
 } from '../../dataAccess/index.js';
 
 describe('DataAccess Module Exports', () => {

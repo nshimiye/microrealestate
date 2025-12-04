@@ -1,8 +1,10 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import * as fc from 'fast-check';
-import DocumentRepository from '../../dataAccess/DocumentRepository.js';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+
+import { clearTestDB, connectTestDB, disconnectTestDB } from './testSetup.js';
+
 import DocumentModel from '../../collections/document.js';
-import { connectTestDB, disconnectTestDB, clearTestDB } from './testSetup.js';
+import DocumentRepository from '../../dataAccess/DocumentRepository.js';
 
 describe('DocumentRepository', () => {
   let documentRepository: DocumentRepository;

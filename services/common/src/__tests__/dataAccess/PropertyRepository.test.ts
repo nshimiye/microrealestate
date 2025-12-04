@@ -1,8 +1,12 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import * as fc from 'fast-check';
-import PropertyRepository from '../../dataAccess/PropertyRepository.js';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+
+import { clearTestDB, connectTestDB, disconnectTestDB } from './testSetup.js';
+
 import PropertyModel from '../../collections/property.js';
-import { connectTestDB, disconnectTestDB, clearTestDB } from './testSetup.js';
+import PropertyRepository from '../../dataAccess/PropertyRepository.js';
 
 // Generator for valid property data
 const propertyDataArbitrary = fc.record({

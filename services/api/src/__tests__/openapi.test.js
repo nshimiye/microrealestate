@@ -17,7 +17,7 @@ describe('OpenAPI Documentation Property Tests', () => {
       expect(Object.keys(paths).length).toBeGreaterThan(0);
 
       // For each path and operation, verify multiple status codes
-      Object.entries(paths).forEach(([path, pathItem]) => {
+      Object.entries(paths).forEach(([_path, pathItem]) => {
         Object.entries(pathItem).forEach(([method, operation]) => {
           // Skip non-operation keys like 'parameters'
           if (!['get', 'post', 'put', 'patch', 'delete'].includes(method)) {
@@ -47,9 +47,8 @@ describe('OpenAPI Documentation Property Tests', () => {
 
     it('should include common error codes across endpoints', () => {
       const paths = swaggerSpec.paths || {};
-      const commonErrorCodes = ['401', '500'];
 
-      Object.entries(paths).forEach(([path, pathItem]) => {
+      Object.entries(paths).forEach(([_path, pathItem]) => {
         Object.entries(pathItem).forEach(([method, operation]) => {
           if (!['get', 'post', 'put', 'patch', 'delete'].includes(method)) {
             return;
@@ -128,7 +127,7 @@ describe('OpenAPI Documentation Property Tests', () => {
             });
 
             // If we have matching paths, verify they have proper status codes
-            matchingPaths.forEach(([path, pathItem]) => {
+            matchingPaths.forEach(([_path, pathItem]) => {
               if (pathItem[method]) {
                 const responses = pathItem[method].responses || {};
                 const statusCodes = Object.keys(responses);
@@ -155,7 +154,7 @@ describe('OpenAPI Documentation Property Tests', () => {
     it('should ensure all error responses have proper structure', () => {
       const paths = swaggerSpec.paths || {};
 
-      Object.entries(paths).forEach(([path, pathItem]) => {
+      Object.entries(paths).forEach(([_path, pathItem]) => {
         Object.entries(pathItem).forEach(([method, operation]) => {
           if (!['get', 'post', 'put', 'patch', 'delete'].includes(method)) {
             return;
@@ -231,7 +230,7 @@ describe('OpenAPI Documentation Property Tests', () => {
       // Verify we have schemas to test
       expect(Object.keys(schemas).length).toBeGreaterThan(0);
 
-      Object.entries(schemas).forEach(([schemaName, schema]) => {
+      Object.entries(schemas).forEach(([_schemaName, schema]) => {
         // Skip if schema is just a reference
         if (schema.$ref) {
           return;
@@ -250,7 +249,7 @@ describe('OpenAPI Documentation Property Tests', () => {
 
         // If schema has properties, each property should have type information
         if (schema.properties) {
-          Object.entries(schema.properties).forEach(([propName, prop]) => {
+          Object.entries(schema.properties).forEach(([_propName, prop]) => {
             // Property should have type or be a $ref
             const propHasType = prop.type !== undefined;
             const propIsRef = prop.$ref !== undefined;
@@ -269,13 +268,13 @@ describe('OpenAPI Documentation Property Tests', () => {
     it('should include descriptions or references for schema properties', () => {
       const schemas = swaggerSpec.components?.schemas || {};
 
-      Object.entries(schemas).forEach(([schemaName, schema]) => {
+      Object.entries(schemas).forEach(([_schemaName, schema]) => {
         if (schema.$ref) {
           return;
         }
 
         if (schema.properties) {
-          Object.entries(schema.properties).forEach(([propName, prop]) => {
+          Object.entries(schema.properties).forEach(([_propName, prop]) => {
             // Each property should have description or be a $ref
             const hasDescription = prop.description !== undefined;
             const isRef = prop.$ref !== undefined;
@@ -307,7 +306,7 @@ describe('OpenAPI Documentation Property Tests', () => {
 
         // Check for validation constraints in properties
         if (schema.properties) {
-          Object.entries(schema.properties).forEach(([propName, prop]) => {
+          Object.entries(schema.properties).forEach(([_propName, prop]) => {
             // Properties should have type information
             if (prop.type) {
               // String properties might have format, enum, pattern
@@ -431,7 +430,7 @@ describe('OpenAPI Documentation Property Tests', () => {
 
           // If it has properties, verify each property has type info
           if (schema.properties) {
-            Object.entries(schema.properties).forEach(([propName, prop]) => {
+            Object.entries(schema.properties).forEach(([_propName, prop]) => {
               const propHasType = prop.type !== undefined;
               const propIsRef = prop.$ref !== undefined;
 
@@ -455,7 +454,7 @@ describe('OpenAPI Documentation Property Tests', () => {
     it('should document all possible error status codes for each endpoint', () => {
       const paths = swaggerSpec.paths || {};
 
-      Object.entries(paths).forEach(([path, pathItem]) => {
+      Object.entries(paths).forEach(([_path, pathItem]) => {
         Object.entries(pathItem).forEach(([method, operation]) => {
           if (!['get', 'post', 'put', 'patch', 'delete'].includes(method)) {
             return;
@@ -526,7 +525,7 @@ describe('OpenAPI Documentation Property Tests', () => {
 
       let totalEndpoints = 0;
 
-      Object.entries(paths).forEach(([path, pathItem]) => {
+      Object.entries(paths).forEach(([_path, pathItem]) => {
         Object.entries(pathItem).forEach(([method, operation]) => {
           if (!['get', 'post', 'put', 'patch', 'delete'].includes(method)) {
             return;

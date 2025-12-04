@@ -1,8 +1,11 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import * as fc from 'fast-check';
-import TenantRepository from '../../dataAccess/TenantRepository.js';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+
+import { clearTestDB, connectTestDB, disconnectTestDB } from './testSetup.js';
+
 import TenantModel from '../../collections/tenant.js';
-import { connectTestDB, disconnectTestDB, clearTestDB } from './testSetup.js';
+import TenantRepository from '../../dataAccess/TenantRepository.js';
 
 // Generator for valid tenant data
 const tenantDataArbitrary = fc.record({
@@ -1011,7 +1014,7 @@ describe('TenantRepository', () => {
         ]
       });
 
-      const tenant2 = await TenantModel.create({
+      await TenantModel.create({
         realmId: 'realm1',
         name: 'Tenant Two',
         contacts: [
@@ -1920,7 +1923,7 @@ describe('TenantRepository', () => {
         contacts: []
       });
 
-      const tenant3 = await TenantModel.create({
+      await TenantModel.create({
         realmId: 'realm1',
         name: 'Tenant Three',
         contacts: []
@@ -2024,7 +2027,7 @@ describe('TenantRepository', () => {
         contacts: []
       });
 
-      const tenant3 = await TenantModel.create({
+      await TenantModel.create({
         realmId: 'realm1',
         name: 'Tenant Three',
         contacts: []
@@ -2111,7 +2114,7 @@ describe('TenantRepository', () => {
     it('should return tenants with filesToUpload populated', async () => {
       // This is a basic test - full aggregation testing would require
       // setting up templates and documents which is complex
-      const tenant = await TenantModel.create({
+      await TenantModel.create({
         realmId: 'realm1',
         name: 'Test Tenant',
         contacts: []
@@ -2132,7 +2135,7 @@ describe('TenantRepository', () => {
         contacts: []
       });
 
-      const tenant2 = await TenantModel.create({
+      await TenantModel.create({
         realmId: 'realm1',
         name: 'Tenant Two',
         contacts: []
