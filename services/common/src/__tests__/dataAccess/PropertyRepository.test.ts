@@ -329,6 +329,69 @@ describe('PropertyRepository', () => {
     }, 35000);
   });
 
+  describe('Property 7: Property CRUD Consistency', () => {
+    it('should maintain consistency through create, update, and retrieve operations', async () => {
+      // Feature: dynamodb-data-access-layer-completion, Property 7: Property CRUD Consistency
+      // Validates: Requirements 3.2, 3.6
+
+      await fc.assert(
+        fc.asyncProperty(
+          propertyDataArbitrary,
+          fc.record({
+            name: fc
+              .string({ minLength: 1, maxLength: 100 })
+              .filter((s) => s.trim().length > 0),
+            price: fc.integer({ min: 0, max: 1000000 })
+          }),
+          async (propertyData, updates) => {
+            // Create property
+            const created = await propertyRepository.create(propertyData);
+
+            // Verify created property has all original fields
+            expect(created._id).toBeDefined();
+            expect(created.realmId).toBe(propertyData.realmId);
+            expect(created.name).toBe(propertyData.name);
+            expect(created.type).toBe(propertyData.type);
+            expect(created.surface).toBe(propertyData.surface);
+            expect(created.price).toBe(propertyData.price);
+
+            // Update property with partial data
+            const updated = await propertyRepository.update(
+              created._id.toString(),
+              propertyData.realmId,
+              updates
+            );
+
+            // Verify updated property has updates applied
+            expect(updated).toBeDefined();
+            expect(updated!.name).toBe(updates.name);
+            expect(updated!.price).toBe(updates.price);
+
+            // Verify non-updated fields remain unchanged
+            expect(updated!._id.toString()).toBe(created._id.toString());
+            expect(updated!.realmId).toBe(propertyData.realmId);
+            expect(updated!.type).toBe(propertyData.type);
+            expect(updated!.surface).toBe(propertyData.surface);
+
+            // Retrieve property and verify consistency
+            const retrieved = await propertyRepository.findById(
+              created._id.toString(),
+              propertyData.realmId
+            );
+
+            expect(retrieved).toBeDefined();
+            expect(retrieved!._id.toString()).toBe(created._id.toString());
+            expect(retrieved!.name).toBe(updates.name);
+            expect(retrieved!.price).toBe(updates.price);
+            expect(retrieved!.type).toBe(propertyData.type);
+            expect(retrieved!.surface).toBe(propertyData.surface);
+          }
+        ),
+        { numRuns: 100, timeout: 30000 }
+      );
+    }, 35000);
+  });
+
   describe('Property 10: Invalid input error handling', () => {
     it('should throw errors for invalid inputs', async () => {
       // Feature: api-property-data-access-layer, Property 10: Invalid input error handling
@@ -394,6 +457,48 @@ describe('PropertyRepository', () => {
           }
         ),
         { numRuns: 50, timeout: 30000 }
+      );
+    }, 35000);
+  });
+
+  describe('Property 8: Property Count Accuracy', () => {
+    it('should return count equal to findAll length for any realm', async () => {
+      // Feature: dynamodb-data-access-layer-completion, Property 8: Property Count Accuracy
+      // Validates: Requirements 3.8
+
+      await fc.assert(
+        fc.asyncProperty(
+          fc
+            .string({ minLength: 24, maxLength: 24 })
+            .map((s) => s.replace(/[^0-9a-f]/g, '0').toLowerCase()),
+          fc.array(propertyDataArbitrary, { minLength: 0, maxLength: 10 }),
+          async (realmId, propertiesData) => {
+            // Clear database before this test
+            await clearTestDB();
+
+            // Create all properties in the same realm
+            const propertiesWithSameRealm = propertiesData.map((p) => ({
+              ...p,
+              realmId: realmId
+            }));
+
+            // Create all properties
+            for (const propertyData of propertiesWithSameRealm) {
+              await propertyRepository.create(propertyData);
+            }
+
+            // Count properties using countByRealmId
+            const count = await propertyRepository.countByRealmId(realmId);
+
+            // Get all properties using findAll
+            const allProperties = await propertyRepository.findAll(realmId);
+
+            // Verify count equals findAll length
+            expect(count).toBe(allProperties.length);
+            expect(count).toBe(propertiesWithSameRealm.length);
+          }
+        ),
+        { numRuns: 100, timeout: 30000 }
       );
     }, 35000);
   });

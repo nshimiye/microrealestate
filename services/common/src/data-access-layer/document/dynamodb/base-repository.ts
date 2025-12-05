@@ -1,4 +1,3 @@
-import * as bcrypt from 'bcrypt';
 import logger from '../../../utils/logger.js';
 import { BaseOthersCRUDRepository } from '../../dynamo/base-others-crud.js';
 import { CollectionTypes } from '@microrealestate/types';

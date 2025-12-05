@@ -39,6 +39,153 @@ describe('AccountRepository', () => {
   // Property-Based Tests
   // ============================================================================
 
+  describe('Property 1: Account Key Structure Consistency', () => {
+    it('should store accounts with PK=ACCOUNT#<accountId> and SK=ACCOUNT#<accountId>', async () => {
+      // Feature: dynamodb-data-access-layer-completion, Property 1: Account Key Structure Consistency
+      // Validates: Requirements 1.2
+
+      // Skip this test if not using DynamoDB
+      if (String(process.env['USE_DYNAMODB']) !== 'true') {
+        return;
+      }
+
+      await fc.assert(
+        fc.asyncProperty(
+          accountDataArbitrary,
+          async (accountData) => {
+            // Create account
+            const created = await accountRepository.create(accountData);
+
+            // Access the DynamoDB client to verify key structure
+            const repo = accountRepository as any;
+            const client = repo.client || repo.getClient();
+            
+            // Get the item directly from DynamoDB
+            const key = {
+              PK: `ACCOUNT#${created._id}`,
+              SK: `ACCOUNT#${created._id}`
+            };
+            
+            const item = await client.getItem(key);
+
+            // Verify the item exists and has correct key structure
+            expect(item).toBeDefined();
+            expect(item.PK).toBe(`ACCOUNT#${created._id}`);
+            expect(item.SK).toBe(`ACCOUNT#${created._id}`);
+            expect(item.EntityType).toBe('Account');
+          }
+        ),
+        { numRuns: 20, timeout: 60000 }
+      );
+    }, 65000);
+  });
+
+  describe('Property 2: Account Email Query Round-Trip', () => {
+    it('should return the same account with all fields intact when querying by email', async () => {
+      // Feature: dynamodb-data-access-layer-completion, Property 2: Account Email Query Round-Trip
+      // Validates: Requirements 1.1, 1.3
+
+      await fc.assert(
+        fc.asyncProperty(
+          accountDataArbitrary,
+          async (accountData) => {
+            // Create account
+            const created = await accountRepository.create(accountData);
+
+            // Query by email
+            const found = await accountRepository.findByEmail(accountData.email);
+
+            // Verify account was found and all fields match
+            expect(found).toBeDefined();
+            expect(found!._id.toString()).toBe(created._id.toString());
+            expect(found!.firstname).toBe(created.firstname);
+            expect(found!.lastname).toBe(created.lastname);
+            expect(found!.email).toBe(created.email);
+            expect(found!.password).toBe(created.password);
+            
+            // Verify email is normalized to lowercase
+            expect(found!.email).toBe(accountData.email.toLowerCase());
+          }
+        ),
+        { numRuns: 50, timeout: 60000 }
+      );
+    }, 65000);
+  });
+
+  describe('Property 3: Account Password Hashing', () => {
+    it('should hash passwords before storage and not equal plaintext', async () => {
+      // Feature: dynamodb-data-access-layer-completion, Property 3: Account Password Hashing
+      // Validates: Requirements 1.6
+
+      await fc.assert(
+        fc.asyncProperty(
+          accountDataArbitrary,
+          async (accountData) => {
+            const plainPassword = accountData.password;
+            // Account for Mongoose trimming the password
+            const trimmedPassword = plainPassword.trim();
+
+            // Create account
+            const created = await accountRepository.create(accountData);
+
+            // Password should be hashed (not equal to plain text)
+            expect(created.password).toBeDefined();
+            expect(created.password).not.toBe(plainPassword);
+            expect(created.password).not.toBe(trimmedPassword);
+
+            // Password should be a valid bcrypt hash
+            expect(created.password).toMatch(/^\$2[aby]\$\d{2}\$/);
+
+            // Should be able to verify the password (using trimmed version)
+            const isValid = bcrypt.compareSync(trimmedPassword, created.password);
+            expect(isValid).toBe(true);
+          }
+        ),
+        { numRuns: 20, timeout: 60000 }
+      );
+    }, 65000);
+  });
+
+  describe('Property 4: Account Data Round-Trip', () => {
+    it('should preserve all fields through toItem/fromItem transformation', async () => {
+      // Feature: dynamodb-data-access-layer-completion, Property 4: Account Data Round-Trip
+      // Validates: Requirements 1.7
+
+      // Skip this test if not using DynamoDB
+      if (String(process.env['USE_DYNAMODB']) !== 'true') {
+        return;
+      }
+
+      await fc.assert(
+        fc.asyncProperty(
+          accountDataArbitrary,
+          async (accountData) => {
+            // Create account
+            const created = await accountRepository.create(accountData);
+
+            // Retrieve account by ID
+            const retrieved = await accountRepository.findById(created._id!);
+
+            // Verify all fields are preserved
+            expect(retrieved).toBeDefined();
+            expect(retrieved!._id).toBe(created._id);
+            expect(retrieved!.firstname).toBe(created.firstname);
+            expect(retrieved!.lastname).toBe(created.lastname);
+            expect(retrieved!.email).toBe(created.email);
+            expect(retrieved!.password).toBe(created.password);
+            
+            // Verify createdDate is preserved (if present)
+            if (created.createdDate) {
+              expect(retrieved!.createdDate).toBeDefined();
+              expect(retrieved!.createdDate!.getTime()).toBe(created.createdDate.getTime());
+            }
+          }
+        ),
+        { numRuns: 50, timeout: 60000 }
+      );
+    }, 65000);
+  });
+
   describe('Property 1: Plain object returns', () => {
     it('should return plain objects without Mongoose methods', async () => {
       // Feature: authenticator-data-access-layer, Property 1: Plain object returns

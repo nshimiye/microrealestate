@@ -185,6 +185,157 @@ describe('DocumentRepository', () => {
   // Property-Based Tests
   // ============================================================================
 
+  describe('Property 5: Document Realm Scoping', () => {
+    it('should only return documents from the specified realm', async () => {
+      const useDynamoDB = process.env.USE_DYNAMODB === 'true';
+      if (!useDynamoDB) {
+        // Skip DynamoDB-specific test when using MongoDB
+        return;
+      }
+
+      await fc.assert(
+        fc.asyncProperty(
+          fc.string({ minLength: 1, maxLength: 50 }),
+          fc.string({ minLength: 1, maxLength: 50 }),
+          fc.array(
+            fc.record({
+              name: fc.string({ minLength: 1, maxLength: 100 }),
+              type: fc.constantFrom('file', 'text'),
+              tenantId: fc.string({ minLength: 1, maxLength: 50 })
+            }),
+            { minLength: 1, maxLength: 10 }
+          ),
+          async (realmId1, realmId2, documents) => {
+            // Ensure realm IDs are different
+            fc.pre(realmId1 !== realmId2);
+
+            // Clear database before each property test iteration
+            await clearTestDB();
+
+            // Create documents in realm 1
+            const realm1DocumentIds: string[] = [];
+            for (const doc of documents) {
+              const created = await documentRepository.create({
+                realmId: realmId1,
+                tenantId: doc.tenantId,
+                leaseId: 'lease-1',
+                type: doc.type,
+                name: doc.name
+              });
+              realm1DocumentIds.push(created._id);
+            }
+
+            // Create documents in realm 2
+            for (const doc of documents) {
+              await documentRepository.create({
+                realmId: realmId2,
+                tenantId: doc.tenantId,
+                leaseId: 'lease-2',
+                type: doc.type,
+                name: doc.name + '-realm2'
+              });
+            }
+
+            // Query documents in realm 1
+            const realm1Results = await documentRepository.findAll(realmId1);
+
+            // All returned documents should belong to realm 1
+            for (const result of realm1Results) {
+              expect(result.realmId).toBe(realmId1);
+            }
+
+            // Should return exactly the documents we created in realm 1
+            expect(realm1Results.length).toBe(realm1DocumentIds.length);
+
+            // Query documents in realm 2
+            const realm2Results = await documentRepository.findAll(realmId2);
+
+            // All returned documents should belong to realm 2
+            for (const result of realm2Results) {
+              expect(result.realmId).toBe(realmId2);
+            }
+
+            // Should return exactly the documents we created in realm 2
+            expect(realm2Results.length).toBe(documents.length);
+          }
+        ),
+        { numRuns: 50, timeout: 30000 }
+      );
+    }, 35000);
+  });
+
+  describe('Property 6: Document Batch Operations', () => {
+    it('should correctly handle batch get and delete operations', async () => {
+      const useDynamoDB = process.env.USE_DYNAMODB === 'true';
+      if (!useDynamoDB) {
+        // Skip DynamoDB-specific test when using MongoDB
+        return;
+      }
+
+      await fc.assert(
+        fc.asyncProperty(
+          fc.string({ minLength: 1, maxLength: 50 }),
+          fc.array(
+            fc.record({
+              name: fc.string({ minLength: 1, maxLength: 100 }),
+              type: fc.constantFrom('file', 'text'),
+              tenantId: fc.string({ minLength: 1, maxLength: 50 })
+            }),
+            { minLength: 2, maxLength: 10 }
+          ),
+          async (realmId, documents) => {
+            // Clear database before each property test iteration
+            await clearTestDB();
+
+            // Create documents
+            const documentIds: string[] = [];
+            for (const doc of documents) {
+              const created = await documentRepository.create({
+                realmId,
+                tenantId: doc.tenantId,
+                leaseId: 'lease-1',
+                type: doc.type,
+                name: doc.name
+              });
+              documentIds.push(created._id);
+            }
+
+            // Test batch get - should return all documents
+            const fetchedDocuments = await documentRepository.findByIds(
+              documentIds,
+              realmId
+            );
+
+            expect(fetchedDocuments.length).toBe(documentIds.length);
+
+            // All fetched documents should have IDs in our list
+            const fetchedIds = fetchedDocuments.map((d) => d._id);
+            for (const id of documentIds) {
+              expect(fetchedIds).toContain(id);
+            }
+
+            // Test batch delete - should delete all documents
+            const deletedCount = await documentRepository.deleteMany(
+              documentIds,
+              realmId
+            );
+
+            expect(deletedCount).toBe(documentIds.length);
+
+            // After deletion, batch get should return empty array
+            const afterDeleteDocuments = await documentRepository.findByIds(
+              documentIds,
+              realmId
+            );
+
+            expect(afterDeleteDocuments.length).toBe(0);
+          }
+        ),
+        { numRuns: 50, timeout: 30000 }
+      );
+    }, 35000);
+  });
+
   describe('Property 9: Document query by tenant IDs', () => {
     it('should return all documents associated with specified tenant IDs in the realm', async () => {
       // Feature: api-occupant-data-access-layer, Property 9: Document query by tenant IDs
