@@ -6,7 +6,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { clearTestDB, connectTestDB, disconnectTestDB } from './testSetup.js';
 
 import PropertyModel from '../../collections/property.js';
-import PropertyRepository from '../../dataAccess/PropertyRepository.js';
+// import PropertyRepository from '../../dataAccess/PropertyRepository.js';
+import { getLeaseRepository, getPropertyRepository, getTemplateRepository, ILeaseRepository, IPropertyRepository, ITemplateRepository } from '../../data-access-layer/index.js';
 
 // Generator for valid property data
 const propertyDataArbitrary = fc.record({
@@ -29,11 +30,11 @@ const propertyDataArbitrary = fc.record({
 });
 
 describe('PropertyRepository', () => {
-  let propertyRepository: PropertyRepository;
+  let propertyRepository: IPropertyRepository;
 
   beforeAll(async () => {
     await connectTestDB();
-    propertyRepository = new PropertyRepository();
+    propertyRepository = getPropertyRepository();
   });
 
   afterAll(async () => {

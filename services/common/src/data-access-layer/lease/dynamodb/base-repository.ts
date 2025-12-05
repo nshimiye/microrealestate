@@ -140,14 +140,17 @@ export abstract class LeaseBaseRepository extends BaseRepository<CollectionTypes
    * @throws Error if realmId is not provided
    */
   async update(
+    // leaseId: string,
+    // updates: Partial<CollectionTypes.Lease>,
+    // realmId?: string
     leaseId: string,
-    updates: Partial<CollectionTypes.Lease>,
-    realmId?: string
-  ): Promise<CollectionTypes.Lease> {
+    realmId: string,
+    updates: Partial<CollectionTypes.Lease>
+  ): Promise<CollectionTypes.Lease|null> {
     if (!realmId) {
       throw new Error('realmId is required to update a Lease');
     }
-    return super.update(leaseId, updates, realmId);
+    return super.update(leaseId, realmId, updates);
   }
 
   /**

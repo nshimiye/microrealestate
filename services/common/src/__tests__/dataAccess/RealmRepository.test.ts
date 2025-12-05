@@ -7,7 +7,6 @@ import { clearTestDB, connectTestDB, disconnectTestDB } from './testSetup.js';
 
 import { Locale } from '@microrealestate/types';
 import RealmModel from '../../collections/realm.js';
-// import RealmRepository from '../../dataAccess/RealmRepository.js';
 import { getRealmRepository, IRealmRepository } from '../../data-access-layer/index.js';
 
 // Generator for valid realm data

@@ -5,7 +5,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { clearTestDB, connectTestDB, disconnectTestDB } from './testSetup.js';
 
 import TenantModel from '../../collections/tenant.js';
-import TenantRepository from '../../dataAccess/TenantRepository.js';
+// import TenantRepository from '../../dataAccess/TenantRepository.js';
+import { getTemplateRepository, getTenantRepository, ITemplateRepository, ITenantRepository } from '../../data-access-layer/index.js';
 
 // Generator for valid tenant data
 const tenantDataArbitrary = fc.record({
@@ -22,11 +23,11 @@ const tenantDataArbitrary = fc.record({
 });
 
 describe('TenantRepository', () => {
-  let tenantRepository: TenantRepository;
+  let tenantRepository: ITenantRepository;
 
   beforeAll(async () => {
     await connectTestDB();
-    tenantRepository = new TenantRepository();
+    tenantRepository = getTenantRepository();
   });
 
   afterAll(async () => {

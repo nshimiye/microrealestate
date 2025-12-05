@@ -1,6 +1,6 @@
 import {
   Crypto,
-  DataAccess,
+  DataAccessLayer,
   logger,
   ServiceError
 } from '@microrealestate/common';
@@ -58,7 +58,7 @@ function _escapeSecrets(realm) {
 }
 
 export async function add(req, res) {
-  const realmRepository = DataAccess.getRealmRepository();
+  const realmRepository = DataAccessLayer.getRealmRepository();
   const newRealm = { ...req.body };
 
   _hasRequiredFields(newRealm);
@@ -99,8 +99,8 @@ export async function add(req, res) {
 }
 
 export async function update(req, res) {
-  const realmRepository = DataAccess.getRealmRepository();
-  const accountRepository = DataAccess.getAccountRepository();
+  const realmRepository = DataAccessLayer.getRealmRepository();
+  const accountRepository = DataAccessLayer.getAccountRepository();
 
   const gmailAppPasswordUpdated =
     !!req.body.thirdParties?.gmail?.appPasswordUpdated;

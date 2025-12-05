@@ -15,7 +15,7 @@ import {
   getSessionManager,
   getTemplateRepository,
   getTenantRepository,
-} from '../../dataAccess/index.js';
+} from '../../data-access-layer/index.js';
 
 describe('DataAccess Module Exports', () => {
   describe('Repository Getters', () => {

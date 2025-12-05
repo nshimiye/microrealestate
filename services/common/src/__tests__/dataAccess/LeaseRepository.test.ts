@@ -6,10 +6,13 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { clearTestDB, connectTestDB, disconnectTestDB, supportsTransactions } from './testSetup.js';
 
 import LeaseModel from '../../collections/lease.js';
-import LeaseRepository from '../../dataAccess/LeaseRepository.js';
+// import LeaseRepository from '../../dataAccess/LeaseRepository.js';
 import TemplateModel from '../../collections/template.js';
-import TemplateRepository from '../../dataAccess/TemplateRepository.js';
+// import TemplateRepository from '../../dataAccess/TemplateRepository.js';
 import TenantModel from '../../collections/tenant.js';
+
+import { getLeaseRepository, getTemplateRepository, ILeaseRepository, ITemplateRepository } from '../../data-access-layer/index.js';
+
 
 // Generator for valid lease data
 const leaseDataArbitrary = fc.record({
@@ -23,13 +26,13 @@ const leaseDataArbitrary = fc.record({
 });
 
 describe('LeaseRepository', () => {
-  let leaseRepository: LeaseRepository;
-  let templateRepository: TemplateRepository;
+  let leaseRepository: ILeaseRepository;
+  let templateRepository: ITemplateRepository;
 
   beforeAll(async () => {
     await connectTestDB();
-    leaseRepository = new LeaseRepository();
-    templateRepository = new TemplateRepository();
+    leaseRepository = getLeaseRepository();
+    templateRepository = getTemplateRepository();
   });
 
   afterAll(async () => {

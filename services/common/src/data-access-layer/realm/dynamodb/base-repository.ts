@@ -153,9 +153,10 @@ export abstract class RealmBaseRepository extends BaseRepository<CollectionTypes
    * @returns The updated realm
    */
   async update(
-    realmId: string,
+    id: string,
+    realmId: string, //same as id
     updates: Partial<CollectionTypes.Realm>
-  ): Promise<CollectionTypes.Realm> {
+  ): Promise<CollectionTypes.Realm|null> {
     // If applications are being updated, hash any new secrets
     if (updates.applications) {
       updates.applications = updates.applications.map((app) => {
@@ -171,7 +172,7 @@ export abstract class RealmBaseRepository extends BaseRepository<CollectionTypes
       });
     }
 
-    return super.update(realmId, updates);
+    return super.update(id, id, updates);
   }
 
   /**

@@ -6,7 +6,8 @@ import { clearTestDB, connectTestDB, disconnectTestDB } from './testSetup.js';
 
 import LeaseModel from '../../collections/lease.js';
 import TemplateModel from '../../collections/template.js';
-import TemplateRepository from '../../dataAccess/TemplateRepository.js';
+// import TemplateRepository from '../../dataAccess/TemplateRepository.js';
+import { getTemplateRepository, ITemplateRepository } from '../../data-access-layer/index.js';
 
 // Generator for valid template data
 const templateDataArbitrary = fc.record({
@@ -34,11 +35,11 @@ const leaseDataArbitrary = fc.record({
 });
 
 describe('TemplateRepository', () => {
-  let templateRepository: TemplateRepository;
+  let templateRepository: ITemplateRepository;
 
   beforeAll(async () => {
     await connectTestDB();
-    templateRepository = new TemplateRepository();
+    templateRepository = getTemplateRepository();
   });
 
   afterAll(async () => {

@@ -1,5 +1,6 @@
 import { CollectionTypes } from '@microrealestate/types';
 import {IDataBaseSession, ILeaseRepository} from '../interface.js';
+import LeaseBaseRepository from './base-repository.js';
 
 /**
  * Repository for Lease entity operations
@@ -7,7 +8,7 @@ import {IDataBaseSession, ILeaseRepository} from '../interface.js';
  * Provides an abstraction layer over Mongoose Lease model,
  * returning plain JavaScript objects instead of Mongoose documents.
  */
-export default class LeaseRepository implements ILeaseRepository {
+export class LeaseRepository extends LeaseBaseRepository implements ILeaseRepository {
   /**
    * Create a new lease
    * 
@@ -89,7 +90,7 @@ export default class LeaseRepository implements ILeaseRepository {
   async update(
     leaseId: string,
     realmId: string,
-    updateData: Partial<CollectionTypes.Lease>
+    updates: Partial<CollectionTypes.Lease>
   ): Promise<CollectionTypes.Lease | null> {
     throw new Error('Implement this');
   }

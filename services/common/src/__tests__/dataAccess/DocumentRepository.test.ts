@@ -4,14 +4,15 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { clearTestDB, connectTestDB, disconnectTestDB } from './testSetup.js';
 
 import DocumentModel from '../../collections/document.js';
-import DocumentRepository from '../../dataAccess/DocumentRepository.js';
+// import DocumentRepository from '../../dataAccess/DocumentRepository.js';
+import { getDocumentRepository, IDocumentRepository } from '../../data-access-layer/index.js';
 
 describe('DocumentRepository', () => {
-  let documentRepository: DocumentRepository;
+  let documentRepository: IDocumentRepository;
 
   beforeAll(async () => {
     await connectTestDB();
-    documentRepository = new DocumentRepository();
+    documentRepository = getDocumentRepository();
   });
 
   afterAll(async () => {

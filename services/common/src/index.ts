@@ -6,7 +6,8 @@ export * as Middlewares from './utils/middlewares.js';
 export { default as MongoClient } from './utils/mongoclient.js';
 export * as URLUtils from './utils/url.js';
 export * as Collections from './collections/index.js';
-export * as DataAccess from './dataAccess/index.js';
+export * as DataAccessLayer from './data-access-layer/index.js'; // redundant
+export * as DataAccess from './data-access-layer/index.js'; // redundant
 export { default as logger } from './utils/logger.js';
 export { default as ServiceError } from './utils/serviceerror.js';
 

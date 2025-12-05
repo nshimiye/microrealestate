@@ -1,5 +1,6 @@
 import { CollectionTypes } from '@microrealestate/types';
 import { RealmBaseRepository } from './base-repository.js';
+import { IRealmRepository } from '../interface.js';
 type DeepPartial<T> = {
   [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
 };
@@ -9,7 +10,7 @@ type DeepPartial<T> = {
  * Provides an abstraction layer over Mongoose Realm model,
  * returning plain JavaScript objects instead of Mongoose documents.
  */
-export default class RealmRepository extends RealmBaseRepository {
+export default class RealmRepository extends RealmBaseRepository implements IRealmRepository {
 
   /**
    * Find a realm by ID

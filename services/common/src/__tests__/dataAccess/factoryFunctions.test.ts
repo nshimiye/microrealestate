@@ -1,20 +1,17 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  getAccountRepository,
-  getTenantRepository,
-} from '../../dataAccess/index.js';
+// import AccountRepository from '../../dataAccess/AccountRepository.js';
+import { getAccountRepository, AccountMongoRepository, getTenantRepository } from '../../data-access-layer/index.js';
 
-import AccountRepository from '../../dataAccess/AccountRepository.js';
 // import RealmRepository from '../../dataAccess/RealmRepository.js';
-import TenantRepository from '../../dataAccess/TenantRepository.js';
-import { getRealmRepository, RealmMongoRepository } from '../../data-access-layer/index.js';
+// import TenantRepository from '../../dataAccess/TenantRepository.js';
+import { getRealmRepository, RealmMongoRepository, TenantMongoRepository } from '../../data-access-layer/index.js';
 
 describe('Repository Factory Functions', () => {
   describe('getAccountRepository', () => {
     it('should return an AccountRepository instance', () => {
       const repository = getAccountRepository();
-      expect(repository).toBeInstanceOf(AccountRepository);
+      expect(repository).toBeInstanceOf(AccountMongoRepository);
     });
 
     it('should return the same instance on multiple calls (singleton)', () => {
@@ -39,7 +36,7 @@ describe('Repository Factory Functions', () => {
   describe('getTenantRepository', () => {
     it('should return a TenantRepository instance', () => {
       const repository = getTenantRepository();
-      expect(repository).toBeInstanceOf(TenantRepository);
+      expect(repository).toBeInstanceOf(TenantMongoRepository);
     });
 
     it('should return the same instance on multiple calls (singleton)', () => {

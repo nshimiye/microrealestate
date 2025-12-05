@@ -5,7 +5,7 @@
  * using the DataAccess namespace.
  */
 
-import * as DataAccess from '../../dataAccess/index.js';
+import * as DataAccess from '../../data-access-layer/index.js';
 import { describe, expect, it } from 'vitest';
 
 describe('DataAccess Package Exports', () => {

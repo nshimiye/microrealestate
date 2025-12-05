@@ -158,9 +158,9 @@ export abstract class BaseRepository<T> {
    */
   async update(
     id: string,
+    realmId: string,
     updates: Partial<T>,
-    realmId?: string
-  ): Promise<T> {
+  ): Promise<T|null> {
     try {
       const key = {
         PK: this.buildPK(id, realmId),

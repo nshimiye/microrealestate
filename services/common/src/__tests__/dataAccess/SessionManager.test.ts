@@ -5,7 +5,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { clearTestDB, connectTestDB, disconnectTestDB, supportsTransactions } from './testSetup.js';
 
-import SessionManager from '../../dataAccess/SessionManager.js';
+// import SessionManager from '../../dataAccess/SessionManager.js';
+import { SessionManager } from '../../data-access-layer/session-manager.js';
 import TenantModel from '../../collections/tenant.js';
 
 describe('SessionManager', () => {
