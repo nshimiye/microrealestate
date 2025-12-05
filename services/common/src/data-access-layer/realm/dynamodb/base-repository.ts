@@ -2,12 +2,13 @@ import * as bcrypt from 'bcrypt';
 import { CollectionTypes } from '@microrealestate/types';
 import { BaseRepository } from '../../dynamo/base.js';
 import logger from '../../../utils/logger.js';
+import { BaseRealmCRUDRepository } from '../../dynamo/base-realm-crud.js';
 
 /**
  * Repository for Realm entities.
  * Handles organization/tenant management with nested structures.
  */
-export abstract class RealmBaseRepository extends BaseRepository<CollectionTypes.Realm> {
+export abstract class RealmBaseRepository extends BaseRealmCRUDRepository<CollectionTypes.Realm> {
   /**
    * Build partition key for Realm entity.
    * Format: REALM#<realmId>
@@ -44,7 +45,7 @@ export abstract class RealmBaseRepository extends BaseRepository<CollectionTypes
     const applications = (entity.applications || []).map((app) => ({
       ...app,
       createdDate: app.createdDate ? app.createdDate.toISOString() : undefined,
-      expiryDate: app.expiryDate ? app.expiryDate.toISOString() : undefined,
+      expiryDate: app.expiryDate ? app.expiryDate.toISOString() : undefined
     }));
 
     return {
@@ -63,7 +64,7 @@ export abstract class RealmBaseRepository extends BaseRepository<CollectionTypes
       CompanyInfo: entity.companyInfo || {},
       ThirdParties: entity.thirdParties || {},
       Locale: entity.locale || 'en',
-      Currency: entity.currency || 'USD',
+      Currency: entity.currency || 'USD'
     };
   }
 
@@ -79,7 +80,7 @@ export abstract class RealmBaseRepository extends BaseRepository<CollectionTypes
     const applications = (item.Applications || []).map((app: any) => ({
       ...app,
       createdDate: app.createdDate ? new Date(app.createdDate) : undefined,
-      expiryDate: app.expiryDate ? new Date(app.expiryDate) : undefined,
+      expiryDate: app.expiryDate ? new Date(app.expiryDate) : undefined
     }));
 
     return {
@@ -94,7 +95,7 @@ export abstract class RealmBaseRepository extends BaseRepository<CollectionTypes
       companyInfo: item.CompanyInfo || {},
       thirdParties: item.ThirdParties || {},
       locale: item.Locale || 'en',
-      currency: item.Currency || 'USD',
+      currency: item.Currency || 'USD'
     };
   }
 
@@ -119,7 +120,7 @@ export abstract class RealmBaseRepository extends BaseRepository<CollectionTypes
               return {
                 ...app,
                 createdDate: new Date(),
-                clientSecret: bcrypt.hashSync(app.clientSecret, 10),
+                clientSecret: bcrypt.hashSync(app.clientSecret, 10)
               };
             }
             return app;
@@ -134,7 +135,7 @@ export abstract class RealmBaseRepository extends BaseRepository<CollectionTypes
       await this.client.putItem(item);
 
       logger.debug('Realm created successfully', {
-        realmId: realmWithHashedSecrets._id,
+        realmId: realmWithHashedSecrets._id
       });
 
       return realmWithHashedSecrets;
@@ -154,9 +155,8 @@ export abstract class RealmBaseRepository extends BaseRepository<CollectionTypes
    */
   async update(
     id: string,
-    realmId: string, //same as id
     updates: Partial<CollectionTypes.Realm>
-  ): Promise<CollectionTypes.Realm|null> {
+  ): Promise<CollectionTypes.Realm | null> {
     // If applications are being updated, hash any new secrets
     if (updates.applications) {
       updates.applications = updates.applications.map((app) => {
@@ -165,14 +165,14 @@ export abstract class RealmBaseRepository extends BaseRepository<CollectionTypes
           return {
             ...app,
             createdDate: new Date(),
-            clientSecret: bcrypt.hashSync(app.clientSecret, 10),
+            clientSecret: bcrypt.hashSync(app.clientSecret, 10)
           };
         }
         return app;
       });
     }
 
-    return super.update(id, id, updates);
+    return super.update(id, updates);
   }
 
   /**

@@ -6,12 +6,19 @@ import { clearTestDB, connectTestDB, disconnectTestDB } from './testSetup.js';
 
 import TenantModel from '../../collections/tenant.js';
 // import TenantRepository from '../../dataAccess/TenantRepository.js';
-import { getTemplateRepository, getTenantRepository, ITemplateRepository, ITenantRepository } from '../../data-access-layer/index.js';
+import {
+  getTemplateRepository,
+  getTenantRepository,
+  ITemplateRepository,
+  ITenantRepository
+} from '../../data-access-layer/index.js';
 
 // Generator for valid tenant data
 const tenantDataArbitrary = fc.record({
   realmId: fc.string({ minLength: 1, maxLength: 50 }),
-  name: fc.string({ minLength: 1, maxLength: 100 }).filter(s => s.trim().length > 0),
+  name: fc
+    .string({ minLength: 1, maxLength: 100 })
+    .filter((s) => s.trim().length > 0),
   contacts: fc.array(
     fc.record({
       contact: fc.string({ minLength: 1, maxLength: 50 }),
@@ -48,47 +55,46 @@ describe('TenantRepository', () => {
       // Validates: Requirements 1.2, 2.4, 5.4
 
       await fc.assert(
-        fc.asyncProperty(
-          tenantDataArbitrary,
-          async (tenantData) => {
-            // Create a tenant
-            const tenant = await TenantModel.create(tenantData);
+        fc.asyncProperty(tenantDataArbitrary, async (tenantData) => {
+          // Create a tenant
+          const tenant = await TenantModel.create(tenantData);
 
-            // Test find method
-            const findResults = await tenantRepository.find({ realmId: tenantData.realmId });
-            for (const result of findResults) {
-              expect((result as any).save).toBeUndefined();
-              expect((result as any).$isNew).toBeUndefined();
-              expect((result as any).toObject).toBeUndefined();
-            }
+          // Test find method
+          const findResults = await tenantRepository.find({
+            realmId: tenantData.realmId
+          });
+          for (const result of findResults) {
+            expect((result as any).save).toBeUndefined();
+            expect((result as any).$isNew).toBeUndefined();
+            expect((result as any).toObject).toBeUndefined();
+          }
 
-            // Test findOne method
-            const findOneResult = await tenantRepository.findOne({
+          // Test findOne method
+          const findOneResult = await tenantRepository.findOne({
+            tenantId: tenant._id.toString(),
+            realmId: tenantData.realmId
+          });
+          if (findOneResult) {
+            expect((findOneResult as any).save).toBeUndefined();
+            expect((findOneResult as any).$isNew).toBeUndefined();
+            expect((findOneResult as any).toObject).toBeUndefined();
+          }
+
+          // Test findOneAndUpdate method
+          const updateResult = await tenantRepository.findOneAndUpdate(
+            {
               tenantId: tenant._id.toString(),
               realmId: tenantData.realmId
-            });
-            if (findOneResult) {
-              expect((findOneResult as any).save).toBeUndefined();
-              expect((findOneResult as any).$isNew).toBeUndefined();
-              expect((findOneResult as any).toObject).toBeUndefined();
-            }
-
-            // Test findOneAndUpdate method
-            const updateResult = await tenantRepository.findOneAndUpdate(
-              {
-                tenantId: tenant._id.toString(),
-                realmId: tenantData.realmId
-              },
-              { name: tenantData.name + ' Updated' },
-              { returnUpdated: true }
-            );
-            if (updateResult) {
-              expect((updateResult as any).save).toBeUndefined();
-              expect((updateResult as any).$isNew).toBeUndefined();
-              expect((updateResult as any).toObject).toBeUndefined();
-            }
+            },
+            { name: tenantData.name + ' Updated' },
+            { returnUpdated: true }
+          );
+          if (updateResult) {
+            expect((updateResult as any).save).toBeUndefined();
+            expect((updateResult as any).$isNew).toBeUndefined();
+            expect((updateResult as any).toObject).toBeUndefined();
           }
-        ),
+        }),
         { numRuns: 50, timeout: 30000 }
       );
     }, 35000);
@@ -104,7 +110,9 @@ describe('TenantRepository', () => {
           fc.string({ minLength: 1, maxLength: 50 }),
           fc.array(
             fc.record({
-              name: fc.string({ minLength: 1, maxLength: 100 }).filter(s => s.trim().length > 0),
+              name: fc
+                .string({ minLength: 1, maxLength: 100 })
+                .filter((s) => s.trim().length > 0),
               contacts: fc.constant([])
             }),
             { minLength: 2, maxLength: 5 }
@@ -132,12 +140,12 @@ describe('TenantRepository', () => {
               { realmId },
               { sort: { name: 'asc' } }
             );
-            
+
             // Should return all created tenants
             expect(ascResults).toHaveLength(uniqueTenants.length);
-            
-            const ascNames = ascResults.map(t => t.name);
-            
+
+            const ascNames = ascResults.map((t) => t.name);
+
             // Verify ascending order: each name should be <= the next (using string comparison)
             for (let i = 0; i < ascNames.length - 1; i++) {
               expect(ascNames[i] <= ascNames[i + 1]).toBe(true);
@@ -148,12 +156,12 @@ describe('TenantRepository', () => {
               { realmId },
               { sort: { name: 'desc' } }
             );
-            
+
             // Should return all created tenants
             expect(descResults).toHaveLength(uniqueTenants.length);
-            
-            const descNames = descResults.map(t => t.name);
-            
+
+            const descNames = descResults.map((t) => t.name);
+
             // Verify descending order: each name should be >= the next (using string comparison)
             for (let i = 0; i < descNames.length - 1; i++) {
               expect(descNames[i] >= descNames[i + 1]).toBe(true);
@@ -176,7 +184,9 @@ describe('TenantRepository', () => {
           fc.string({ minLength: 1, maxLength: 50 }),
           fc.array(
             fc.record({
-              name: fc.string({ minLength: 1, maxLength: 100 }).filter(s => s.trim().length > 0),
+              name: fc
+                .string({ minLength: 1, maxLength: 100 })
+                .filter((s) => s.trim().length > 0),
               contacts: fc.constant([])
             }),
             { minLength: 1, maxLength: 3 }
@@ -202,7 +212,9 @@ describe('TenantRepository', () => {
             }
 
             // Query for target realmId
-            const results = await tenantRepository.find({ realmId: targetRealmId });
+            const results = await tenantRepository.find({
+              realmId: targetRealmId
+            });
 
             // All results should have the target realmId
             expect(results.length).toBeGreaterThan(0);
@@ -226,7 +238,9 @@ describe('TenantRepository', () => {
           fc.string({ minLength: 1, maxLength: 50 }),
           fc.array(
             fc.record({
-              name: fc.string({ minLength: 1, maxLength: 100 }).filter(s => s.trim().length > 0),
+              name: fc
+                .string({ minLength: 1, maxLength: 100 })
+                .filter((s) => s.trim().length > 0),
               contacts: fc.constant([])
             }),
             { minLength: 2, maxLength: 4 }
@@ -273,7 +287,7 @@ describe('TenantRepository', () => {
           fc.integer({ min: 1, max: 3 }),
           async (realmId, baseTerm, rangeMonths) => {
             const startTerm = baseTerm;
-            const endTerm = baseTerm + (rangeMonths * 10000);
+            const endTerm = baseTerm + rangeMonths * 10000;
 
             // Create tenant with rents in range
             await TenantModel.create({
@@ -291,9 +305,7 @@ describe('TenantRepository', () => {
               realmId,
               name: 'Tenant Out Range',
               contacts: [],
-              rents: [
-                { term: endTerm + 10000 } as any
-              ]
+              rents: [{ term: endTerm + 10000 } as any]
             });
 
             // Create tenant with no rents
@@ -343,9 +355,7 @@ describe('TenantRepository', () => {
               realmId,
               name: 'Tenant With Term',
               contacts: [],
-              rents: [
-                { term: targetTerm } as any
-              ]
+              rents: [{ term: targetTerm } as any]
             });
 
             // Create tenant with different term
@@ -353,9 +363,7 @@ describe('TenantRepository', () => {
               realmId,
               name: 'Tenant Different Term',
               contacts: [],
-              rents: [
-                { term: targetTerm + 10000 } as any
-              ]
+              rents: [{ term: targetTerm + 10000 } as any]
             });
 
             // Query for single term
@@ -369,7 +377,9 @@ describe('TenantRepository', () => {
 
             // All returned tenants should have the target term
             for (const tenant of results) {
-              const hasTerm = tenant.rents.some((rent: any) => rent.term === targetTerm);
+              const hasTerm = tenant.rents.some(
+                (rent: any) => rent.term === targetTerm
+              );
               expect(hasTerm).toBe(true);
             }
           }
@@ -422,9 +432,13 @@ describe('TenantRepository', () => {
 
             // Should return exactly the matching tenant
             expect(results).toHaveLength(1);
-            expect(results[0]._id.toString()).toBe(matchingTenant._id.toString());
+            expect(results[0]._id.toString()).toBe(
+              matchingTenant._id.toString()
+            );
             expect(results[0].realmId).toBe(realmId);
-            expect(results[0].rents.some((r: any) => r.term === term)).toBe(true);
+            expect(results[0].rents.some((r: any) => r.term === term)).toBe(
+              true
+            );
           }
         ),
         { numRuns: 50, timeout: 30000 }
@@ -440,7 +454,9 @@ describe('TenantRepository', () => {
       await fc.assert(
         fc.asyncProperty(
           tenantDataArbitrary,
-          fc.string({ minLength: 1, maxLength: 100 }).filter(s => s.trim().length > 0),
+          fc
+            .string({ minLength: 1, maxLength: 100 })
+            .filter((s) => s.trim().length > 0),
           fc.integer({ min: 0, max: 1000 }),
           async (tenantData, newName, newDiscount) => {
             // Create a tenant
@@ -530,26 +546,23 @@ describe('TenantRepository', () => {
       // Validates: Requirements 7.4
 
       await fc.assert(
-        fc.asyncProperty(
-          tenantDataArbitrary,
-          async (tenantData) => {
-            // Create a tenant
-            const tenant = await TenantModel.create(tenantData);
+        fc.asyncProperty(tenantDataArbitrary, async (tenantData) => {
+          // Create a tenant
+          const tenant = await TenantModel.create(tenantData);
 
-            // Query tenant
-            const found = await tenantRepository.findOne({
-              tenantId: tenant._id.toString(),
-              realmId: tenantData.realmId
-            });
+          // Query tenant
+          const found = await tenantRepository.findOne({
+            tenantId: tenant._id.toString(),
+            realmId: tenantData.realmId
+          });
 
-            // Should be able to convert _id to string
-            expect(found).toBeDefined();
-            expect(typeof found!._id).toBe('object'); // MongoDB ObjectId
-            const idString = found!._id.toString();
-            expect(typeof idString).toBe('string');
-            expect(idString).toMatch(/^[0-9a-f]{24}$/); // Valid ObjectId format
-          }
-        ),
+          // Should be able to convert _id to string
+          expect(found).toBeDefined();
+          expect(typeof found!._id).toBe('object'); // MongoDB ObjectId
+          const idString = found!._id.toString();
+          expect(typeof idString).toBe('string');
+          expect(idString).toMatch(/^[0-9a-f]{24}$/); // Valid ObjectId format
+        }),
         { numRuns: 50, timeout: 30000 }
       );
     }, 35000);
@@ -583,19 +596,24 @@ describe('TenantRepository', () => {
             const tenantWithoutEmail = {
               ...tenantData,
               name: tenantData.name + ' Different',
-              contacts: tenantData.contacts.filter(c => c.email !== searchEmail)
+              contacts: tenantData.contacts.filter(
+                (c) => c.email !== searchEmail
+              )
             };
             await TenantModel.create(tenantWithoutEmail);
 
             // Search for tenants with the email
-            const results = await tenantRepository.findByContactEmail(searchEmail);
+            const results =
+              await tenantRepository.findByContactEmail(searchEmail);
 
             // Should find at least the tenant we created with that email
             expect(results.length).toBeGreaterThanOrEqual(1);
 
             // All returned tenants should have the search email in their contacts
             for (const tenant of results) {
-              const hasEmail = tenant.contacts?.some(c => c.email === searchEmail);
+              const hasEmail = tenant.contacts?.some(
+                (c) => c.email === searchEmail
+              );
               expect(hasEmail).toBe(true);
             }
 
@@ -622,8 +640,12 @@ describe('TenantRepository', () => {
           fc.string({ minLength: 1, maxLength: 50 }),
           fc.array(
             fc.record({
-              propertyId: fc.string({ minLength: 24, maxLength: 24 }).map(s => s.padEnd(24, '0')),
-              name: fc.string({ minLength: 1, maxLength: 100 }).filter(s => s.trim().length > 0)
+              propertyId: fc
+                .string({ minLength: 24, maxLength: 24 })
+                .map((s) => s.padEnd(24, '0')),
+              name: fc
+                .string({ minLength: 1, maxLength: 100 })
+                .filter((s) => s.trim().length > 0)
             }),
             { minLength: 2, maxLength: 5 }
           ),
@@ -653,18 +675,25 @@ describe('TenantRepository', () => {
             }
 
             // Pick a subset of property IDs to search for
-            const searchPropertyIds = uniquePairs.slice(0, Math.ceil(uniquePairs.length / 2)).map(p => p.propertyId);
+            const searchPropertyIds = uniquePairs
+              .slice(0, Math.ceil(uniquePairs.length / 2))
+              .map((p) => p.propertyId);
 
             // Query for tenants with those property IDs
-            const results = await tenantRepository.findByPropertyIds(searchPropertyIds, realmId);
+            const results = await tenantRepository.findByPropertyIds(
+              searchPropertyIds,
+              realmId
+            );
 
             // Should return at least the tenants we're searching for
-            expect(results.length).toBeGreaterThanOrEqual(searchPropertyIds.length);
+            expect(results.length).toBeGreaterThanOrEqual(
+              searchPropertyIds.length
+            );
 
             // All returned tenants should have at least one of the searched property IDs
             for (const tenant of results) {
-              const hasMatchingProperty = tenant.properties?.some(
-                (p: any) => searchPropertyIds.includes(p.propertyId)
+              const hasMatchingProperty = tenant.properties?.some((p: any) =>
+                searchPropertyIds.includes(p.propertyId)
               );
               expect(hasMatchingProperty).toBe(true);
             }
@@ -693,8 +722,12 @@ describe('TenantRepository', () => {
           fc.string({ minLength: 1, maxLength: 50 }),
           fc.array(
             fc.record({
-              propertyId: fc.string({ minLength: 24, maxLength: 24 }).map(s => s.padEnd(24, '0')),
-              name: fc.string({ minLength: 1, maxLength: 100 }).filter(s => s.trim().length > 0)
+              propertyId: fc
+                .string({ minLength: 24, maxLength: 24 })
+                .map((s) => s.padEnd(24, '0')),
+              name: fc
+                .string({ minLength: 1, maxLength: 100 })
+                .filter((s) => s.trim().length > 0)
             }),
             { minLength: 1, maxLength: 3 }
           ),
@@ -711,7 +744,7 @@ describe('TenantRepository', () => {
               name: `${pair.name}_${i}`
             }));
 
-            const propertyIds = uniquePairs.map(p => p.propertyId);
+            const propertyIds = uniquePairs.map((p) => p.propertyId);
 
             // Create tenants in target realm
             for (const pair of uniquePairs) {
@@ -744,7 +777,10 @@ describe('TenantRepository', () => {
             }
 
             // Query for tenants in target realm
-            const results = await tenantRepository.findByPropertyIds(propertyIds, targetRealmId);
+            const results = await tenantRepository.findByPropertyIds(
+              propertyIds,
+              targetRealmId
+            );
 
             // Should return at least the tenants from target realm
             expect(results.length).toBeGreaterThanOrEqual(uniquePairs.length);
@@ -773,38 +809,37 @@ describe('TenantRepository', () => {
       // Validates: Requirements 3.8
 
       await fc.assert(
-        fc.asyncProperty(
-          tenantDataArbitrary,
-          async (tenantData) => {
-            // Clear database before each property test iteration
-            await clearTestDB();
+        fc.asyncProperty(tenantDataArbitrary, async (tenantData) => {
+          // Clear database before each property test iteration
+          await clearTestDB();
 
-            // Test create method
-            const created = await tenantRepository.create(tenantData);
-            expect((created as any).save).toBeUndefined();
-            expect((created as any).$isNew).toBeUndefined();
-            expect((created as any).toObject).toBeUndefined();
+          // Test create method
+          const created = await tenantRepository.create(tenantData);
+          expect((created as any).save).toBeUndefined();
+          expect((created as any).$isNew).toBeUndefined();
+          expect((created as any).toObject).toBeUndefined();
 
-            // Test findByIds method
-            const findByIdsResults = await tenantRepository.findByIds(
-              [created._id.toString()],
-              tenantData.realmId
-            );
-            for (const result of findByIdsResults) {
-              expect((result as any).save).toBeUndefined();
-              expect((result as any).$isNew).toBeUndefined();
-              expect((result as any).toObject).toBeUndefined();
-            }
-
-            // Test findAll method
-            const findAllResults = await tenantRepository.findAll(tenantData.realmId);
-            for (const result of findAllResults) {
-              expect((result as any).save).toBeUndefined();
-              expect((result as any).$isNew).toBeUndefined();
-              expect((result as any).toObject).toBeUndefined();
-            }
+          // Test findByIds method
+          const findByIdsResults = await tenantRepository.findByIds(
+            [created._id.toString()],
+            tenantData.realmId
+          );
+          for (const result of findByIdsResults) {
+            expect((result as any).save).toBeUndefined();
+            expect((result as any).$isNew).toBeUndefined();
+            expect((result as any).toObject).toBeUndefined();
           }
-        ),
+
+          // Test findAll method
+          const findAllResults = await tenantRepository.findAll(
+            tenantData.realmId
+          );
+          for (const result of findAllResults) {
+            expect((result as any).save).toBeUndefined();
+            expect((result as any).$isNew).toBeUndefined();
+            expect((result as any).toObject).toBeUndefined();
+          }
+        }),
         { numRuns: 100, timeout: 30000 }
       );
     }, 35000);
@@ -816,40 +851,41 @@ describe('TenantRepository', () => {
       // Validates: Requirements 3.1
 
       await fc.assert(
-        fc.asyncProperty(
-          tenantDataArbitrary,
-          async (tenantData) => {
-            // Clear database before each property test iteration
-            await clearTestDB();
+        fc.asyncProperty(tenantDataArbitrary, async (tenantData) => {
+          // Clear database before each property test iteration
+          await clearTestDB();
 
-            // Create a tenant
-            const created = await tenantRepository.create(tenantData);
+          // Create a tenant
+          const created = await tenantRepository.create(tenantData);
 
-            // Verify it has an ID
-            expect(created._id).toBeDefined();
+          // Verify it has an ID
+          expect(created._id).toBeDefined();
 
-            // Retrieve by ID
-            const foundById = await tenantRepository.findById(created._id.toString());
-            expect(foundById).toBeDefined();
-            expect(foundById!.name).toBe(tenantData.name);
-            expect(foundById!.realmId).toBe(tenantData.realmId);
+          // Retrieve by ID
+          const foundById = await tenantRepository.findById(
+            created._id.toString()
+          );
+          expect(foundById).toBeDefined();
+          expect(foundById!.name).toBe(tenantData.name);
+          expect(foundById!.realmId).toBe(tenantData.realmId);
 
-            // Retrieve by findByIds
-            const foundByIds = await tenantRepository.findByIds(
-              [created._id.toString()],
-              tenantData.realmId
-            );
-            expect(foundByIds).toHaveLength(1);
-            expect(foundByIds[0].name).toBe(tenantData.name);
+          // Retrieve by findByIds
+          const foundByIds = await tenantRepository.findByIds(
+            [created._id.toString()],
+            tenantData.realmId
+          );
+          expect(foundByIds).toHaveLength(1);
+          expect(foundByIds[0].name).toBe(tenantData.name);
 
-            // Retrieve by findAll
-            const foundAll = await tenantRepository.findAll(tenantData.realmId);
-            expect(foundAll.length).toBeGreaterThanOrEqual(1);
-            const matchingTenant = foundAll.find(t => t._id.toString() === created._id.toString());
-            expect(matchingTenant).toBeDefined();
-            expect(matchingTenant!.name).toBe(tenantData.name);
-          }
-        ),
+          // Retrieve by findAll
+          const foundAll = await tenantRepository.findAll(tenantData.realmId);
+          expect(foundAll.length).toBeGreaterThanOrEqual(1);
+          const matchingTenant = foundAll.find(
+            (t) => t._id.toString() === created._id.toString()
+          );
+          expect(matchingTenant).toBeDefined();
+          expect(matchingTenant!.name).toBe(tenantData.name);
+        }),
         { numRuns: 100, timeout: 30000 }
       );
     }, 35000);
@@ -863,7 +899,9 @@ describe('TenantRepository', () => {
       await fc.assert(
         fc.asyncProperty(
           tenantDataArbitrary,
-          fc.string({ minLength: 1, maxLength: 100 }).filter(s => s.trim().length > 0),
+          fc
+            .string({ minLength: 1, maxLength: 100 })
+            .filter((s) => s.trim().length > 0),
           async (tenantData, newName) => {
             // Clear database before each property test iteration
             await clearTestDB();
@@ -872,17 +910,19 @@ describe('TenantRepository', () => {
             const created = await tenantRepository.create(tenantData);
 
             // Update the tenant
-            const modifiedCount = await tenantRepository.update(
+            const modified = await tenantRepository.update(
               created._id.toString(),
               tenantData.realmId,
               { name: newName }
             );
 
             // Should have modified exactly one document
-            expect(modifiedCount).toBe(1);
+            expect(modified).toBeDefined();
 
             // Retrieve and verify the update persisted
-            const foundById = await tenantRepository.findById(created._id.toString());
+            const foundById = await tenantRepository.findById(
+              created._id.toString()
+            );
             expect(foundById).toBeDefined();
             expect(foundById!.name).toBe(newName);
             expect(foundById!.realmId).toBe(tenantData.realmId);
@@ -897,7 +937,9 @@ describe('TenantRepository', () => {
 
             // Verify via findAll
             const foundAll = await tenantRepository.findAll(tenantData.realmId);
-            const matchingTenant = foundAll.find(t => t._id.toString() === created._id.toString());
+            const matchingTenant = foundAll.find(
+              (t) => t._id.toString() === created._id.toString()
+            );
             expect(matchingTenant).toBeDefined();
             expect(matchingTenant!.name).toBe(newName);
           }
@@ -918,7 +960,9 @@ describe('TenantRepository', () => {
           fc.string({ minLength: 1, maxLength: 50 }),
           fc.array(
             fc.record({
-              name: fc.string({ minLength: 1, maxLength: 100 }).filter(s => s.trim().length > 0),
+              name: fc
+                .string({ minLength: 1, maxLength: 100 })
+                .filter((s) => s.trim().length > 0),
               contacts: fc.constant([] as any)
             }),
             { minLength: 2, maxLength: 4 }
@@ -960,22 +1004,26 @@ describe('TenantRepository', () => {
             }
 
             // Test findAll - should only return target realm tenants
-            const findAllResults = await tenantRepository.findAll(targetRealmId);
-            expect(findAllResults.length).toBeGreaterThanOrEqual(targetTenantIds.length);
+            const findAllResults =
+              await tenantRepository.findAll(targetRealmId);
+            expect(findAllResults.length).toBeGreaterThanOrEqual(
+              targetTenantIds.length
+            );
             for (const result of findAllResults) {
               expect(result.realmId).toBe(targetRealmId);
             }
 
             // Test update - should only update target realm tenant
-            const updateCount = await tenantRepository.update(
+            const updated = await tenantRepository.update(
               targetTenantIds[0],
               targetRealmId,
               { name: 'Updated Name' }
             );
-            expect(updateCount).toBe(1);
+            expect(updated).toBeDefined;
 
             // Verify update didn't affect other realm
-            const otherRealmTenants = await tenantRepository.findAll(otherRealmId);
+            const otherRealmTenants =
+              await tenantRepository.findAll(otherRealmId);
             for (const tenant of otherRealmTenants) {
               expect(tenant.name).not.toBe('Updated Name');
             }
@@ -988,7 +1036,8 @@ describe('TenantRepository', () => {
             expect(deleteCount).toBe(1);
 
             // Verify deletion didn't affect other realm
-            const otherRealmTenantsAfterDelete = await tenantRepository.findAll(otherRealmId);
+            const otherRealmTenantsAfterDelete =
+              await tenantRepository.findAll(otherRealmId);
             expect(otherRealmTenantsAfterDelete.length).toBe(tenants.length);
           }
         ),
@@ -1027,7 +1076,8 @@ describe('TenantRepository', () => {
         ]
       });
 
-      const results = await tenantRepository.findByContactEmail('john@example.com');
+      const results =
+        await tenantRepository.findByContactEmail('john@example.com');
 
       expect(results).toHaveLength(1);
       expect(results[0].name).toBe('Tenant One');
@@ -1047,7 +1097,9 @@ describe('TenantRepository', () => {
         ]
       });
 
-      const results = await tenantRepository.findByContactEmail('nonexistent@example.com');
+      const results = await tenantRepository.findByContactEmail(
+        'nonexistent@example.com'
+      );
       expect(results).toHaveLength(0);
     });
 
@@ -1076,7 +1128,8 @@ describe('TenantRepository', () => {
         ]
       });
 
-      const results = await tenantRepository.findByContactEmail('shared@example.com');
+      const results =
+        await tenantRepository.findByContactEmail('shared@example.com');
       expect(results).toHaveLength(2);
     });
 
@@ -1084,9 +1137,9 @@ describe('TenantRepository', () => {
       await expect(tenantRepository.findByContactEmail('')).rejects.toThrow(
         'Email must be a non-empty string'
       );
-      await expect(tenantRepository.findByContactEmail(null as any)).rejects.toThrow(
-        'Email must be a non-empty string'
-      );
+      await expect(
+        tenantRepository.findByContactEmail(null as any)
+      ).rejects.toThrow('Email must be a non-empty string');
     });
   });
 
@@ -1170,7 +1223,7 @@ describe('TenantRepository', () => {
       const results = await tenantRepository.find({ realmId: 'realm1' });
 
       expect(results).toHaveLength(2);
-      expect(results.every(t => t.realmId === 'realm1')).toBe(true);
+      expect(results.every((t) => t.realmId === 'realm1')).toBe(true);
     });
 
     it('should find tenant with realmId and tenantId', async () => {
@@ -1200,19 +1253,14 @@ describe('TenantRepository', () => {
         realmId: 'realm1',
         name: 'Tenant One',
         contacts: [],
-        rents: [
-          { term: 2024010100 } as any,
-          { term: 2024020100 } as any
-        ]
+        rents: [{ term: 2024010100 } as any, { term: 2024020100 } as any]
       });
 
       await TenantModel.create({
         realmId: 'realm1',
         name: 'Tenant Two',
         contacts: [],
-        rents: [
-          { term: 2024030100 } as any
-        ]
+        rents: [{ term: 2024030100 } as any]
       });
 
       await TenantModel.create({
@@ -1237,18 +1285,14 @@ describe('TenantRepository', () => {
         realmId: 'realm1',
         name: 'Tenant One',
         contacts: [],
-        rents: [
-          { term: 2024010100 } as any
-        ]
+        rents: [{ term: 2024010100 } as any]
       });
 
       await TenantModel.create({
         realmId: 'realm1',
         name: 'Tenant Two',
         contacts: [],
-        rents: [
-          { term: 2024020100 } as any
-        ]
+        rents: [{ term: 2024020100 } as any]
       });
 
       const results = await tenantRepository.find({
@@ -1399,11 +1443,16 @@ describe('TenantRepository', () => {
 
     it('should throw error for missing realmId', async () => {
       await expect(
-        tenantRepository.findOne({ tenantId: '507f1f77bcf86cd799439011' } as any)
+        tenantRepository.findOne({
+          tenantId: '507f1f77bcf86cd799439011'
+        } as any)
       ).rejects.toThrow('realmId is required and must be a string');
 
       await expect(
-        tenantRepository.findOne({ tenantId: '507f1f77bcf86cd799439011', realmId: '' })
+        tenantRepository.findOne({
+          tenantId: '507f1f77bcf86cd799439011',
+          realmId: ''
+        })
       ).rejects.toThrow('realmId is required and must be a string');
     });
 
@@ -1498,9 +1547,7 @@ describe('TenantRepository', () => {
         realmId: 'realm1',
         name: 'Test Tenant',
         contacts: [],
-        rents: [
-          { term: 2024010100, total: { payment: 0 } } as any
-        ]
+        rents: [{ term: 2024010100, total: { payment: 0 } } as any]
       });
 
       const newRents = [
@@ -1538,10 +1585,9 @@ describe('TenantRepository', () => {
 
     it('should throw error for missing tenantId', async () => {
       await expect(
-        tenantRepository.findOneAndUpdate(
-          { realmId: 'realm1' } as any,
-          { name: 'Updated' }
-        )
+        tenantRepository.findOneAndUpdate({ realmId: 'realm1' } as any, {
+          name: 'Updated'
+        })
       ).rejects.toThrow('tenantId is required and must be a string');
     });
 
@@ -1640,7 +1686,7 @@ describe('TenantRepository', () => {
       );
 
       expect(results).toHaveLength(2);
-      const names = results.map(t => t.name).sort();
+      const names = results.map((t) => t.name).sort();
       expect(names).toEqual(['Tenant One', 'Tenant Two']);
     });
 
@@ -1673,7 +1719,10 @@ describe('TenantRepository', () => {
         ]
       });
 
-      const results = await tenantRepository.findByPropertyIds([propertyId], 'realm1');
+      const results = await tenantRepository.findByPropertyIds(
+        [propertyId],
+        'realm1'
+      );
 
       expect(results).toHaveLength(1);
       expect(results[0].name).toBe('Tenant Realm 1');
@@ -1695,7 +1744,10 @@ describe('TenantRepository', () => {
         ]
       });
 
-      const results = await tenantRepository.findByPropertyIds([propertyId], 'realm1');
+      const results = await tenantRepository.findByPropertyIds(
+        [propertyId],
+        'realm1'
+      );
 
       expect(results).toHaveLength(1);
       expect((results[0] as any).save).toBeUndefined();
@@ -1718,7 +1770,10 @@ describe('TenantRepository', () => {
         ]
       });
 
-      const results = await tenantRepository.findByPropertyIds([propertyId], 'realm1');
+      const results = await tenantRepository.findByPropertyIds(
+        [propertyId],
+        'realm1'
+      );
 
       expect(results).toHaveLength(0);
     });
@@ -1748,7 +1803,10 @@ describe('TenantRepository', () => {
         ]
       });
 
-      const results = await tenantRepository.findByPropertyIds([searchPropertyId], 'realm1');
+      const results = await tenantRepository.findByPropertyIds(
+        [searchPropertyId],
+        'realm1'
+      );
 
       expect(results).toHaveLength(1);
       expect(results[0].name).toBe('Multi Property Tenant');
@@ -1777,7 +1835,10 @@ describe('TenantRepository', () => {
       ).rejects.toThrow('Realm ID must be a non-empty string');
 
       await expect(
-        tenantRepository.findByPropertyIds(['507f1f77bcf86cd799439011'], null as any)
+        tenantRepository.findByPropertyIds(
+          ['507f1f77bcf86cd799439011'],
+          null as any
+        )
       ).rejects.toThrow('Realm ID must be a non-empty string');
     });
   });
@@ -1826,9 +1887,9 @@ describe('TenantRepository', () => {
     });
 
     it('should throw error for invalid tenant data', async () => {
-      await expect(
-        tenantRepository.create(null as any)
-      ).rejects.toThrow('Tenant data must be an object');
+      await expect(tenantRepository.create(null as any)).rejects.toThrow(
+        'Tenant data must be an object'
+      );
 
       await expect(
         tenantRepository.create('not an object' as any)
@@ -1844,13 +1905,13 @@ describe('TenantRepository', () => {
         contacts: []
       });
 
-      const modifiedCount = await tenantRepository.update(
+      const modified = await tenantRepository.update(
         tenant._id.toString(),
         'realm1',
         { name: 'Updated Name' }
       );
 
-      expect(modifiedCount).toBe(1);
+      expect(modified).toBeDefined();
 
       // Verify the update
       const found = await TenantModel.findById(tenant._id).lean();
@@ -1858,29 +1919,29 @@ describe('TenantRepository', () => {
     });
 
     it('should return 0 when tenant not found', async () => {
-      const modifiedCount = await tenantRepository.update(
+      const modified = await tenantRepository.update(
         '507f1f77bcf86cd799439011',
         'realm1',
         { name: 'Updated' }
       );
 
-      expect(modifiedCount).toBe(0);
+      expect(modified).toBe(null);
     });
 
-    it('should return 0 when realmId does not match', async () => {
+    it('should return null when realmId does not match', async () => {
       const tenant = await TenantModel.create({
         realmId: 'realm1',
         name: 'Test Tenant',
         contacts: []
       });
 
-      const modifiedCount = await tenantRepository.update(
+      const modified = await tenantRepository.update(
         tenant._id.toString(),
         'realm2',
         { name: 'Updated' }
       );
 
-      expect(modifiedCount).toBe(0);
+      expect(modified).toBe(null);
     });
 
     it('should throw error for invalid tenantId', async () => {
@@ -1895,17 +1956,25 @@ describe('TenantRepository', () => {
 
     it('should throw error for invalid realmId', async () => {
       await expect(
-        tenantRepository.update('507f1f77bcf86cd799439011', '', { name: 'Updated' })
+        tenantRepository.update('507f1f77bcf86cd799439011', '', {
+          name: 'Updated'
+        })
       ).rejects.toThrow('Realm ID must be a non-empty string');
 
       await expect(
-        tenantRepository.update('507f1f77bcf86cd799439011', null as any, { name: 'Updated' })
+        tenantRepository.update('507f1f77bcf86cd799439011', null as any, {
+          name: 'Updated'
+        })
       ).rejects.toThrow('Realm ID must be a non-empty string');
     });
 
     it('should throw error for invalid update data', async () => {
       await expect(
-        tenantRepository.update('507f1f77bcf86cd799439011', 'realm1', null as any)
+        tenantRepository.update(
+          '507f1f77bcf86cd799439011',
+          'realm1',
+          null as any
+        )
       ).rejects.toThrow('Update data must be an object');
     });
   });
@@ -1936,7 +2005,7 @@ describe('TenantRepository', () => {
       );
 
       expect(results).toHaveLength(2);
-      const names = results.map(t => t.name).sort();
+      const names = results.map((t) => t.name).sort();
       expect(names).toEqual(['Tenant One', 'Tenant Two']);
     });
 
@@ -1979,7 +2048,10 @@ describe('TenantRepository', () => {
         contacts: []
       });
 
-      const results = await tenantRepository.findByIds([tenant._id.toString()], 'realm1');
+      const results = await tenantRepository.findByIds(
+        [tenant._id.toString()],
+        'realm1'
+      );
 
       expect(results).toHaveLength(1);
       expect((results[0] as any).save).toBeUndefined();
@@ -1988,9 +2060,9 @@ describe('TenantRepository', () => {
     });
 
     it('should throw error for empty tenant IDs array', async () => {
-      await expect(
-        tenantRepository.findByIds([], 'realm1')
-      ).rejects.toThrow('Tenant IDs must be a non-empty array');
+      await expect(tenantRepository.findByIds([], 'realm1')).rejects.toThrow(
+        'Tenant IDs must be a non-empty array'
+      );
     });
 
     it('should throw error for invalid tenant IDs', async () => {
@@ -2085,9 +2157,9 @@ describe('TenantRepository', () => {
     });
 
     it('should throw error for empty tenant IDs array', async () => {
-      await expect(
-        tenantRepository.deleteMany([], 'realm1')
-      ).rejects.toThrow('Tenant IDs must be a non-empty array');
+      await expect(tenantRepository.deleteMany([], 'realm1')).rejects.toThrow(
+        'Tenant IDs must be a non-empty array'
+      );
     });
 
     it('should throw error for invalid tenant IDs', async () => {
@@ -2179,9 +2251,9 @@ describe('TenantRepository', () => {
     });
 
     it('should throw error for missing realmId', async () => {
-      await expect(
-        tenantRepository.findWithAggregation('')
-      ).rejects.toThrow('Realm ID must be a non-empty string');
+      await expect(tenantRepository.findWithAggregation('')).rejects.toThrow(
+        'Realm ID must be a non-empty string'
+      );
 
       await expect(
         tenantRepository.findWithAggregation(null as any)
@@ -2212,7 +2284,7 @@ describe('TenantRepository', () => {
       const results = await tenantRepository.findAll('realm1');
 
       expect(results).toHaveLength(2);
-      expect(results.every(t => t.realmId === 'realm1')).toBe(true);
+      expect(results.every((t) => t.realmId === 'realm1')).toBe(true);
     });
 
     it('should return empty array when no tenants in realm', async () => {
@@ -2236,13 +2308,13 @@ describe('TenantRepository', () => {
     });
 
     it('should throw error for missing realmId', async () => {
-      await expect(
-        tenantRepository.findAll('')
-      ).rejects.toThrow('Realm ID must be a non-empty string');
+      await expect(tenantRepository.findAll('')).rejects.toThrow(
+        'Realm ID must be a non-empty string'
+      );
 
-      await expect(
-        tenantRepository.findAll(null as any)
-      ).rejects.toThrow('Realm ID must be a non-empty string');
+      await expect(tenantRepository.findAll(null as any)).rejects.toThrow(
+        'Realm ID must be a non-empty string'
+      );
     });
   });
 
@@ -2335,7 +2407,10 @@ describe('TenantRepository', () => {
       ).rejects.toThrow('Realm ID must be a non-empty string');
 
       await expect(
-        tenantRepository.findByIdWithProperties('507f1f77bcf86cd799439011', null as any)
+        tenantRepository.findByIdWithProperties(
+          '507f1f77bcf86cd799439011',
+          null as any
+        )
       ).rejects.toThrow('Realm ID must be a non-empty string');
     });
   });

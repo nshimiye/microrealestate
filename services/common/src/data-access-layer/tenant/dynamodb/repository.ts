@@ -5,9 +5,12 @@ import { CollectionTypes } from '@microrealestate/types';
 /**
  * DynamoDB implementation of Tenant repository
  */
-export default class TenantRepository implements ITenantRepository {
+export default class TenantRepository
+  extends TenantBaseRepository
+  implements ITenantRepository
+{
   findById(id: string): Promise<CollectionTypes.Tenant | null> {
-      throw new Error('Method not implemented.');
+    throw new Error('Method not implemented.');
   }
   async findByContactEmail(email: string): Promise<CollectionTypes.Tenant[]> {
     // TODO: Implement DynamoDB query by contact email (GSI required)
@@ -55,21 +58,10 @@ export default class TenantRepository implements ITenantRepository {
     throw new Error('Method not implemented');
   }
 
-  async create(tenantData: Partial<CollectionTypes.Tenant>): Promise<CollectionTypes.Tenant> {
-    // TODO: Implement DynamoDB create
-    throw new Error('Method not implemented');
-  }
-
-  async update(
-    tenantId: string,
-    realmId: string,
-    updateData: Partial<CollectionTypes.Tenant>
-  ): Promise<number> {
-    // TODO: Implement DynamoDB update
-    throw new Error('Method not implemented');
-  }
-
-  async findByIds(tenantIds: string[], realmId: string): Promise<CollectionTypes.Tenant[]> {
+  async findByIds(
+    tenantIds: string[],
+    realmId: string
+  ): Promise<CollectionTypes.Tenant[]> {
     // TODO: Implement DynamoDB batch get
     throw new Error('Method not implemented');
   }

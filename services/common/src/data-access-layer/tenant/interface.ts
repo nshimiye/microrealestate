@@ -81,7 +81,9 @@ export interface ITenantRepository {
   /**
    * Create a new tenant
    */
-  create(tenantData: Partial<CollectionTypes.Tenant>): Promise<CollectionTypes.Tenant>;
+  create(
+    tenantData: Partial<CollectionTypes.Tenant>
+  ): Promise<CollectionTypes.Tenant>;
 
   /**
    * Update an existing tenant
@@ -90,12 +92,15 @@ export interface ITenantRepository {
     tenantId: string,
     realmId: string,
     updateData: Partial<CollectionTypes.Tenant>
-  ): Promise<number>;
+  ): Promise<CollectionTypes.Tenant | null>;
 
   /**
    * Find tenants by IDs with realm filtering
    */
-  findByIds(tenantIds: string[], realmId: string): Promise<CollectionTypes.Tenant[]>;
+  findByIds(
+    tenantIds: string[],
+    realmId: string
+  ): Promise<CollectionTypes.Tenant[]>;
 
   /**
    * Delete multiple tenants

@@ -10,7 +10,9 @@ type DeepPartial<T> = {
  * MongoDB implementation of Property repository
  */
 export default class MongoRepository implements IPropertyRepository {
-  async create(propertyData: DeepPartial<CollectionTypes.Property>): Promise<CollectionTypes.Property> {
+  async create(
+    propertyData: DeepPartial<CollectionTypes.Property>
+  ): Promise<CollectionTypes.Property> {
     if (!propertyData || typeof propertyData !== 'object') {
       throw new Error('Property data must be an object');
     }
@@ -46,7 +48,7 @@ export default class MongoRepository implements IPropertyRepository {
     return property as CollectionTypes.Property | null;
   }
 
-  async delete(propertyIds: string[], realmId: string): Promise<number> {
+  async deleteMany(propertyIds: string[], realmId: string): Promise<number> {
     if (!Array.isArray(propertyIds) || propertyIds.length === 0) {
       throw new Error('Property IDs must be a non-empty array');
     }
@@ -61,8 +63,13 @@ export default class MongoRepository implements IPropertyRepository {
 
     return result.deletedCount || 0;
   }
-
-  async findById(propertyId: string, realmId: string): Promise<CollectionTypes.Property | null> {
+  async delete(propertyId: string, realmId: string): Promise<void> {
+    throw new Error('Not implemented');
+  }
+  async findById(
+    propertyId: string,
+    realmId: string
+  ): Promise<CollectionTypes.Property | null> {
     if (!propertyId || typeof propertyId !== 'string') {
       throw new Error('Property ID must be a non-empty string');
     }

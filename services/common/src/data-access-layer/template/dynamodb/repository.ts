@@ -5,16 +5,12 @@ import { CollectionTypes } from '@microrealestate/types';
 /**
  * DynamoDB implementation of Template repository
  */
-export default class DynamoRepository extends TemplateBaseRepository implements ITemplateRepository {
+export default class DynamoRepository
+  extends TemplateBaseRepository
+  implements ITemplateRepository
+{
   async findAll(realmId: string): Promise<CollectionTypes.Template[]> {
     // TODO: Implement DynamoDB query by realm
-    throw new Error('Method not implemented');
-  }
-
-  async create(
-    templateData: Partial<CollectionTypes.Template>
-  ): Promise<CollectionTypes.Template> {
-    // TODO: Implement DynamoDB create
     throw new Error('Method not implemented');
   }
 

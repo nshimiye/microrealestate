@@ -58,7 +58,7 @@ export async function remove(req, res) {
   const realm = req.realm;
   const ids = req.params.ids.split(',');
 
-  await propertyRepository.delete(ids, realm._id);
+  await propertyRepository.deleteMany(ids, realm._id);
 
   res.sendStatus(200); // better to return 204
 }
@@ -76,10 +76,7 @@ export async function one(req, res) {
   const realm = req.realm;
   const tenantId = req.params.id;
 
-  const dbProperty = await propertyRepository.findById(
-    tenantId,
-    realm._id
-  );
+  const dbProperty = await propertyRepository.findById(tenantId, realm._id);
 
   const properties = await _toPropertiesData(realm, [dbProperty]);
   return res.json(properties[0]);

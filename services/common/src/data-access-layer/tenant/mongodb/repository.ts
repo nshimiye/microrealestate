@@ -151,7 +151,9 @@ export default class MongoRepository implements ITenantRepository {
     return tenants as CollectionTypes.Tenant[];
   }
 
-  async create(tenantData: Partial<CollectionTypes.Tenant>): Promise<CollectionTypes.Tenant> {
+  async create(
+    tenantData: Partial<CollectionTypes.Tenant>
+  ): Promise<CollectionTypes.Tenant> {
     if (!tenantData || typeof tenantData !== 'object') {
       throw new Error('Tenant data must be an object');
     }
@@ -167,7 +169,7 @@ export default class MongoRepository implements ITenantRepository {
     tenantId: string,
     realmId: string,
     updateData: Partial<CollectionTypes.Tenant>
-  ): Promise<number> {
+  ): Promise<CollectionTypes.Tenant | null> {
     if (!tenantId || typeof tenantId !== 'string') {
       throw new Error('Tenant ID must be a non-empty string');
     }
@@ -178,15 +180,23 @@ export default class MongoRepository implements ITenantRepository {
       throw new Error('Update data must be an object');
     }
 
-    const result = await TenantModel.updateOne(
+    // const result = await TenantModel.updateOne(
+    //   { _id: tenantId, realmId: realmId },
+    //   updateData
+    // );
+    // return result.modifiedCount || 0;
+
+    const result = await TenantModel.findOneAndUpdate(
       { _id: tenantId, realmId: realmId },
       updateData
     );
-
-    return result.modifiedCount || 0;
+    return result as CollectionTypes.Tenant;
   }
 
-  async findByIds(tenantIds: string[], realmId: string): Promise<CollectionTypes.Tenant[]> {
+  async findByIds(
+    tenantIds: string[],
+    realmId: string
+  ): Promise<CollectionTypes.Tenant[]> {
     if (!Array.isArray(tenantIds) || tenantIds.length === 0) {
       throw new Error('Tenant IDs must be a non-empty array');
     }
@@ -358,7 +368,10 @@ export default class MongoRepository implements ITenantRepository {
               {
                 $and: [
                   {
-                    $gte: ['$terminationDate', new Date(`${year}-01-01T00:00:00`)]
+                    $gte: [
+                      '$terminationDate',
+                      new Date(`${year}-01-01T00:00:00`)
+                    ]
                   },
                   {
                     $lt: [

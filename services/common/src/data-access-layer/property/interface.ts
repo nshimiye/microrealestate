@@ -19,7 +19,9 @@ export interface IPropertyRepository {
    * @returns Created property object
    * @throws Error if propertyData is invalid or missing realmId
    */
-  create(propertyData: DeepPartial<CollectionTypes.Property>): Promise<CollectionTypes.Property>;
+  create(
+    propertyData: DeepPartial<CollectionTypes.Property>
+  ): Promise<CollectionTypes.Property>;
 
   /**
    * Update an existing property
@@ -44,7 +46,17 @@ export interface IPropertyRepository {
    * @returns Number of properties deleted
    * @throws Error if propertyIds or realmId is invalid
    */
-  delete(propertyIds: string[], realmId: string): Promise<number>;
+  deleteMany(propertyIds: string[], realmId: string): Promise<number>;
+
+  /**
+   * Delete properties by IDs
+   *
+   * @param propertyIds - Array of property IDs to delete
+   * @param realmId - Realm ID for security filtering
+   * @returns Number of properties deleted
+   * @throws Error if propertyIds or realmId is invalid
+   */
+  delete(propertyId: string, realmId: string): Promise<void>;
 
   /**
    * Find a property by ID
@@ -54,7 +66,10 @@ export interface IPropertyRepository {
    * @returns Property object or null if not found
    * @throws Error if propertyId or realmId is invalid
    */
-  findById(propertyId: string, realmId: string): Promise<CollectionTypes.Property | null>;
+  findById(
+    propertyId: string,
+    realmId: string
+  ): Promise<CollectionTypes.Property | null>;
 
   /**
    * Find all properties in a realm

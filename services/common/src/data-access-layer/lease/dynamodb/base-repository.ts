@@ -1,11 +1,10 @@
 import { CollectionTypes } from '@microrealestate/types';
-import { BaseRepository } from '../../dynamo/base.js';
+import { BaseOthersCRUDRepository } from '../../dynamo/base-others-crud.js';
 /**
  * Repository for Lease entities.
  * Handles lease contract management within realms.
  */
-export abstract class LeaseBaseRepository extends BaseRepository<CollectionTypes.Lease> {
-
+export abstract class LeaseBaseRepository extends BaseOthersCRUDRepository<CollectionTypes.Lease> {
   /**
    * Build partition key for Lease entity.
    * Format: REALM#<realmId>
@@ -55,7 +54,7 @@ export abstract class LeaseBaseRepository extends BaseRepository<CollectionTypes
       NumberOfTerms: entity.numberOfTerms,
       TimeRange: entity.timeRange,
       Active: entity.active,
-      StepperMode: entity.stepperMode || false,
+      StepperMode: entity.stepperMode || false
     };
   }
 
@@ -75,7 +74,7 @@ export abstract class LeaseBaseRepository extends BaseRepository<CollectionTypes
       numberOfTerms: item.NumberOfTerms,
       timeRange: item.TimeRange,
       active: item.Active,
-      stepperMode: item.StepperMode || false,
+      stepperMode: item.StepperMode || false
     };
   }
 
@@ -121,7 +120,7 @@ export abstract class LeaseBaseRepository extends BaseRepository<CollectionTypes
    */
   async findById(
     leaseId: string,
-    realmId?: string
+    realmId: string
   ): Promise<CollectionTypes.Lease | null> {
     if (!realmId) {
       throw new Error('realmId is required to find a Lease by ID');
@@ -140,13 +139,10 @@ export abstract class LeaseBaseRepository extends BaseRepository<CollectionTypes
    * @throws Error if realmId is not provided
    */
   async update(
-    // leaseId: string,
-    // updates: Partial<CollectionTypes.Lease>,
-    // realmId?: string
     leaseId: string,
     realmId: string,
     updates: Partial<CollectionTypes.Lease>
-  ): Promise<CollectionTypes.Lease|null> {
+  ): Promise<CollectionTypes.Lease | null> {
     if (!realmId) {
       throw new Error('realmId is required to update a Lease');
     }
