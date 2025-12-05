@@ -165,6 +165,68 @@ describe('TemplateRepository', () => {
     }, 35000);
   });
 
+  describe('Property 10: Template Replace Completeness', () => {
+    it('should replace template with exactly the new data fields and none of the old data fields (except ID and realmId)', async () => {
+      // Feature: dynamodb-data-access-layer-completion, Property 10: Template Replace Completeness
+      // Validates: Requirements 4.5
+
+      await fc.assert(
+        fc.asyncProperty(
+          fc.string({ minLength: 1, maxLength: 50 }),
+          templateDataArbitrary,
+          templateDataArbitrary,
+          async (realmId, originalData, newData) => {
+            // Clear database before this test iteration
+            await TemplateModel.deleteMany({});
+            
+            // Create original template
+            const original = await TemplateModel.create({
+              ...originalData,
+              realmId
+            });
+            
+            const templateId = original._id.toString();
+            
+            // Replace with new data
+            const replaced = await templateRepository.replace(
+              templateId,
+              realmId,
+              { ...newData, realmId }
+            );
+            
+            // Verify replacement occurred
+            expect(replaced).not.toBeNull();
+            expect(replaced?._id.toString()).toBe(templateId);
+            expect(replaced?.realmId).toBe(realmId);
+            
+            // Verify new data fields are present
+            expect(replaced?.name).toBe(newData.name);
+            expect(replaced?.type).toBe(newData.type);
+            expect(replaced?.description).toBe(newData.description);
+            expect(replaced?.hasExpiryDate).toBe(newData.hasExpiryDate);
+            expect(replaced?.required).toBe(newData.required);
+            expect(replaced?.requiredOnceContractTerminated).toBe(newData.requiredOnceContractTerminated);
+            
+            // Verify linkedResourceIds from new data
+            if (newData.linkedResourceIds && newData.linkedResourceIds.length > 0) {
+              expect(replaced?.linkedResourceIds).toEqual(newData.linkedResourceIds);
+            }
+            
+            // Verify old data fields are NOT present (except ID and realmId)
+            // If original had different values, they should be replaced
+            if (originalData.name !== newData.name) {
+              expect(replaced?.name).not.toBe(originalData.name);
+            }
+            if (originalData.description !== newData.description) {
+              expect(replaced?.description).not.toBe(originalData.description);
+            }
+          }
+        ),
+        { numRuns: 100, timeout: 30000 }
+      );
+    }, 35000);
+  });
+
   describe('Property 9: Template bulk update modifies templates', () => {
     it('should modify all matching templates according to update operation', async () => {
       // Feature: api-lease-data-access-layer, Property 9: Template bulk update modifies templates
