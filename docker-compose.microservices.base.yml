@@ -28,6 +28,20 @@ services:
     networks:
       - net
   ###############################################################################
+  # DynamoDB Local
+  ###############################################################################
+  dynamodb-local:
+    image: amazon/dynamodb-local:latest
+    command: -jar DynamoDBLocal.jar -sharedDb -dbPath /data
+    expose:
+      - '8000'
+    ports:
+      - '8000:8000'
+    volumes:
+      - ./data/dynamodb:/data
+    networks:
+      - net
+  ###############################################################################
   # Gateway
   ###############################################################################
   gateway:
@@ -49,6 +63,7 @@ services:
       - CORS_ENABLED
       - TENANTAPI_URL
       - ENABLE_API_DOCS
+      - USE_DYNAMODB=true
     ports:
       - '$GATEWAY_PORT:8080'
     networks:
@@ -78,6 +93,7 @@ services:
       - EMAILER_URL
       - SIGNUP
       - DOMAIN_URL
+      - USE_DYNAMODB=true
     expose:
       - '$AUTHENTICATOR_PORT'
     networks:
@@ -100,6 +116,7 @@ services:
       - CIPHER_KEY
       - CIPHER_IV_KEY
       - UPLOAD_MAX_SIZE
+      - USE_DYNAMODB=true
     expose:
       - '$PDFGENERATOR_PORT'
     networks:
@@ -136,6 +153,7 @@ services:
       - EMAIL_FROM
       - EMAIL_REPLY_TO
       - EMAIL_BCC
+      - USE_DYNAMODB=true
     expose:
       - '$EMAILER_PORT'
     networks:
@@ -162,6 +180,7 @@ services:
       - ACCESS_TOKEN_SECRET=$AUTHENTICATOR_ACCESS_TOKEN_SECRET
       - CIPHER_KEY
       - CIPHER_IV_KEY
+      - USE_DYNAMODB=true
     expose:
       - '$API_PORT'
     networks:
@@ -182,6 +201,7 @@ services:
       - MONGO_URL
       - DEMO_MODE
       - ACCESS_TOKEN_SECRET=$AUTHENTICATOR_ACCESS_TOKEN_SECRET
+      - USE_DYNAMODB=true
     expose:
       - '$TENANTAPI_PORT'
     networks:

@@ -249,9 +249,9 @@ describe('RealmRepository', () => {
             const updated = await realmRepository.update(created._id.toString(), updateData);
 
             // Verify updates are reflected
-            expect(updated.name).toBe(updateData.name);
-            expect(updated.locale).toBe(updateData.locale);
-            expect(updated.currency).toBe(updateData.currency);
+            expect(updated!.name).toBe(updateData.name);
+            expect(updated!.locale).toBe(updateData.locale);
+            expect(updated!.currency).toBe(updateData.currency);
 
             // Retrieve and verify persistence
             const retrieved = await realmRepository.findById(created._id.toString());
@@ -305,10 +305,10 @@ describe('RealmRepository', () => {
             });
 
             // Verify all new application secrets are hashed
-            expect(updated.applications).toHaveLength(newApps.length);
+            expect(updated!.applications).toHaveLength(newApps.length);
             
-            for (let i = 0; i < updated.applications.length; i++) {
-              const app = updated.applications[i];
+            for (let i = 0; i < updated!.applications.length; i++) {
+              const app = updated!.applications[i];
               const originalSecret = originalSecrets[i];
 
               // Secret should not match original
@@ -552,9 +552,10 @@ describe('RealmRepository', () => {
       });
 
       expect(updated).toBeDefined();
-      expect(updated.name).toBe('Updated Name');
-      expect(updated.locale).toBe('fr');
-      expect(updated.currency).toBe('USD'); // Unchanged
+      expect(updated).not.toBeNull();
+      expect(updated!.name).toBe('Updated Name');
+      expect(updated!.locale).toBe('fr');
+      expect(updated!.currency).toBe('USD'); // Unchanged
 
       // Verify persistence
       const found = await RealmModel.findById(created._id).lean();
@@ -585,10 +586,11 @@ describe('RealmRepository', () => {
       });
 
       expect(updated).toBeDefined();
-      expect(updated.applications).toHaveLength(1);
-      expect(updated.applications[0].clientSecret).not.toBe(plainSecret);
-      expect(updated.applications[0].clientSecret).toMatch(/^\$2[aby]\$/); // bcrypt hash pattern
-      expect(updated.applications[0].createdDate).toBeDefined();
+      expect(updated).not.toBeNull();
+      expect(updated!.applications).toHaveLength(1);
+      expect(updated!.applications[0].clientSecret).not.toBe(plainSecret);
+      expect(updated!.applications[0].clientSecret).toMatch(/^\$2[aby]\$/); // bcrypt hash pattern
+      expect(updated!.applications[0].createdDate).toBeDefined();
     });
 
     it('should throw error for non-existent realm', async () => {

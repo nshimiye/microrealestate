@@ -54,16 +54,19 @@ export default class DynamoRepository
     if (!documentData.realmId) {
       throw new Error('Document data must include realmId');
     }
+    if (!documentData.type) {
+      throw new Error('Document data must include type');
+    }
 
     const document: CollectionTypes.Document = {
       _id: documentData._id || uuidv4(),
       realmId: documentData.realmId,
       tenantId: documentData.tenantId || '',
       leaseId: documentData.leaseId || '',
-      templateId: documentData.templateId,
-      type: documentData.type || '',
+      templateId: documentData.templateId||'',
+      type: documentData.type,
       name: documentData.name || '',
-      description: documentData.description,
+      description: documentData.description||'',
       mimeType: documentData.mimeType || '',
       expiryDate: documentData.expiryDate,
       contents: documentData.contents,

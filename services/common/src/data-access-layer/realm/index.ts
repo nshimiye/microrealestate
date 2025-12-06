@@ -2,6 +2,7 @@ import MongoRepository from './mongodb/repository.js';
 import DynamoRepository from './dynamodb/repository.js';
 
 import { IRealmRepository } from './interface.js';
+import logger from '../../utils/logger.js';
 // import Service from '../../utils/service.js';
 
 export { IRealmRepository } from './interface.js';
@@ -16,6 +17,7 @@ const useDynamoDB = String(process.env['USE_DYNAMODB']) === 'true';
 let dbType: 'MONGODB'|'DYNAMODB' = 'MONGODB';
 if(useDynamoDB) dbType = 'DYNAMODB';
 // END
+logger.info('USE_DYNAMODB env =' + String(process.env['USE_DYNAMODB']));
 
 
 /**
@@ -25,7 +27,7 @@ if(useDynamoDB) dbType = 'DYNAMODB';
 export function getRealmRepositoryImpl(): IRealmRepository {
     // const service = Service.getInstance();
     // const { USE_DYNAMODB } = service.envConfig.getValues();
-
+logger.info('dbType=' + dbType);
     if (dbType === 'DYNAMODB') {
       return new DynamoRepository();
     }

@@ -1,12 +1,11 @@
 import { CollectionTypes } from '@microrealestate/types';
 import { IDataBaseSession, ILeaseRepository } from '../interface.js';
 import LeaseBaseRepository from './base-repository.js';
+import logger from '../../../utils/logger.js';
+import { getTenantRepository } from '../../tenant/index.js';
 
 /**
- * Repository for Lease entity operations
- *
- * Provides an abstraction layer over Mongoose Lease model,
- * returning plain JavaScript objects instead of Mongoose documents.
+ * DynamoDB implementation of Lease repository
  */
 export default class LeaseRepository
   extends LeaseBaseRepository
@@ -33,7 +32,28 @@ export default class LeaseRepository
   async create(
     leaseData: Partial<CollectionTypes.Lease>
   ): Promise<CollectionTypes.Lease> {
-    throw new Error('Implement this');
+    if (!leaseData || typeof leaseData !== 'object') {
+      throw new Error('Lease data must be an object');
+    }
+
+    if (!leaseData.realmId) {
+      throw new Error('Realm ID is required');
+    }
+
+    try {
+      const lease = await super.create(leaseData as CollectionTypes.Lease);
+
+      logger.debug('Lease created successfully', {
+        leaseId: lease._id,
+        realmId: lease.realmId,
+        name: lease.name
+      });
+
+      return lease;
+    } catch (error) {
+      logger.error('Failed to create lease', { leaseData, error });
+      throw error;
+    }
   }
 
   /**
@@ -56,7 +76,27 @@ export default class LeaseRepository
     leaseId: string,
     realmId: string
   ): Promise<CollectionTypes.Lease | null> {
-    throw new Error('Implement this');
+    if (!leaseId || typeof leaseId !== 'string') {
+      throw new Error('Lease ID must be a non-empty string');
+    }
+    if (!realmId || typeof realmId !== 'string') {
+      throw new Error('Realm ID must be a non-empty string');
+    }
+
+    try {
+      const lease = await super.findById(leaseId, realmId);
+
+      logger.debug('Lease findById completed', {
+        leaseId,
+        realmId,
+        found: !!lease
+      });
+
+      return lease;
+    } catch (error) {
+      logger.error('Failed to find lease by ID', { leaseId, realmId, error });
+      throw error;
+    }
   }
 
   /**
@@ -74,7 +114,30 @@ export default class LeaseRepository
    * ```
    */
   async findAll(realmId: string): Promise<CollectionTypes.Lease[]> {
-    throw new Error('Implement this');
+    if (!realmId || typeof realmId !== 'string') {
+      throw new Error('Realm ID must be a non-empty string');
+    }
+
+    try {
+      const leases = await this.findByRealm(realmId);
+
+      // Sort by name in ascending order
+      leases.sort((a, b) => {
+        const nameA = a.name || '';
+        const nameB = b.name || '';
+        return nameA.localeCompare(nameB);
+      });
+
+      logger.debug('Found leases in realm', {
+        realmId,
+        count: leases.length
+      });
+
+      return leases;
+    } catch (error) {
+      logger.error('Failed to find leases', { realmId, error });
+      throw error;
+    }
   }
 
   /**
@@ -100,7 +163,30 @@ export default class LeaseRepository
     realmId: string,
     updates: Partial<CollectionTypes.Lease>
   ): Promise<CollectionTypes.Lease | null> {
-    throw new Error('Implement this');
+    if (!leaseId || typeof leaseId !== 'string') {
+      throw new Error('Lease ID must be a non-empty string');
+    }
+    if (!realmId || typeof realmId !== 'string') {
+      throw new Error('Realm ID must be a non-empty string');
+    }
+    if (!updates || typeof updates !== 'object') {
+      throw new Error('Update data must be an object');
+    }
+
+    try {
+      const lease = await super.update(leaseId, realmId, updates);
+
+      logger.debug('Lease updated successfully', {
+        leaseId,
+        realmId,
+        found: !!lease
+      });
+
+      return lease;
+    } catch (error) {
+      logger.error('Failed to update lease', { leaseId, realmId, error });
+      throw error;
+    }
   }
 
   /**
@@ -108,7 +194,7 @@ export default class LeaseRepository
    *
    * @param leaseIds - Array of lease IDs to delete
    * @param realmId - Realm ID
-   * @param session - Optional database session for transactions
+   * @param session - Optional database session for transactions (not used in DynamoDB)
    * @returns Number of leases deleted
    * @throws Error if leaseIds or realmId is invalid
    *
@@ -123,9 +209,49 @@ export default class LeaseRepository
   async deleteMany(
     leaseIds: string[],
     realmId: string,
-    session?: IDataBaseSession // TODO figure out dynamodb equivelant
+    session?: IDataBaseSession
   ): Promise<number> {
-    throw new Error('Implement this');
+    if (!Array.isArray(leaseIds) || leaseIds.length === 0) {
+      throw new Error('Lease IDs must be a non-empty array');
+    }
+    if (!realmId || typeof realmId !== 'string') {
+      throw new Error('Realm ID must be a non-empty string');
+    }
+
+    try {
+      // Build delete requests for batch operation
+      const deleteRequests = leaseIds.map((leaseId) => ({
+        deleteRequest: {
+          PK: this.buildPK(leaseId, realmId),
+          SK: this.buildSK(leaseId)
+        }
+      }));
+
+      // Execute batch delete
+      const result = await this.client.batchWrite(deleteRequests);
+
+      // Calculate number of successfully deleted items
+      const deletedCount = leaseIds.length - result.unprocessedItems.length;
+
+      if (result.unprocessedItems.length > 0) {
+        logger.warn('Some leases could not be deleted', {
+          realmId,
+          unprocessedCount: result.unprocessedItems.length,
+          totalRequested: leaseIds.length
+        });
+      }
+
+      logger.debug('Leases deleted', {
+        realmId,
+        deletedCount,
+        requestedCount: leaseIds.length
+      });
+
+      return deletedCount;
+    } catch (error) {
+      logger.error('Failed to delete leases', { realmId, error });
+      throw error;
+    }
   }
 
   /**
@@ -149,7 +275,38 @@ export default class LeaseRepository
    * ```
    */
   async findLeaseIdsUsedByTenants(realmId: string): Promise<Set<string>> {
-    throw new Error('Implement this');
+    if (!realmId || typeof realmId !== 'string') {
+      throw new Error('Realm ID must be a non-empty string');
+    }
+
+    try {
+      // Get tenant repository instance
+      const tenantRepository = getTenantRepository();
+
+      // Query all tenants in the realm
+      const tenants = await tenantRepository.findAll(realmId);
+
+      // Collect unique lease IDs
+      const leaseIds = tenants.reduce((acc, tenant) => {
+        if (tenant.leaseId) {
+          acc.add(tenant.leaseId.toString());
+        }
+        return acc;
+      }, new Set<string>());
+
+      logger.debug('Found lease IDs used by tenants', {
+        realmId,
+        count: leaseIds.size
+      });
+
+      return leaseIds;
+    } catch (error) {
+      logger.error('Failed to find lease IDs used by tenants', {
+        realmId,
+        error
+      });
+      throw error;
+    }
   }
 
   /**
@@ -172,6 +329,36 @@ export default class LeaseRepository
     leaseIds: string[],
     realmId: string
   ): Promise<CollectionTypes.Lease[]> {
-    throw new Error('Implement this');
+    if (!Array.isArray(leaseIds) || leaseIds.length === 0) {
+      throw new Error('Lease IDs must be a non-empty array');
+    }
+    if (!realmId || typeof realmId !== 'string') {
+      throw new Error('Realm ID must be a non-empty string');
+    }
+
+    try {
+      // Build keys for batch get operation
+      const keys = leaseIds.map((leaseId) => ({
+        PK: this.buildPK(leaseId, realmId),
+        SK: this.buildSK(leaseId)
+      }));
+
+      // Execute batch get
+      const items = await this.client.batchGet(keys);
+
+      // Transform items to Lease entities
+      const leases = items.map((item: Record<string, any>) => this.fromItem(item));
+
+      logger.debug('Found leases by IDs', {
+        realmId,
+        requestedCount: leaseIds.length,
+        foundCount: leases.length
+      });
+
+      return leases;
+    } catch (error) {
+      logger.error('Failed to find leases by IDs', { realmId, error });
+      throw error;
+    }
   }
 }

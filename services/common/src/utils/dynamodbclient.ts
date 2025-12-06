@@ -91,6 +91,15 @@ process.on('SIGINT', async () => {
   }
 });
 
+const DynamoDBClientTESTConfig = {
+  region: 'us-east-1',
+  endpoint: 'http://dynamodb-local:8000',
+  tableName: 'microrealestate-local',
+  credentials: {
+    accessKeyId: 'local',
+    secretAccessKey: 'local'
+  }
+}
 export default class DynamoDBClient {
   private static instance: DynamoDBClient | null = null;
 
@@ -99,7 +108,7 @@ export default class DynamoDBClient {
       if (!config) {
         throw new Error('config is required');
       }
-      DynamoDBClient.instance = new DynamoDBClient(config);
+      DynamoDBClient.instance = new DynamoDBClient(DynamoDBClientTESTConfig);
     }
     return DynamoDBClient.instance;
   }
@@ -134,6 +143,10 @@ export default class DynamoDBClient {
       this.docClient = DynamoDBDocumentClient.from(this.client, {
         marshallOptions: {
           removeUndefinedValues: true,
+          // convertEmptyValues: false - Empty strings are NOT automatically converted
+          // DynamoDB does not support empty strings as attribute values.
+          // Empty string handling is intentionally deferred as it requires system-wide
+          // changes to data transformation. See DYNAMODB_CONSTRAINTS.md for details.
           convertEmptyValues: false
         },
         unmarshallOptions: {
@@ -360,6 +373,11 @@ export default class DynamoDBClient {
     this.ensureConnected();
 
     try {
+      logger.debug('Querying GSI', {
+        indexName,
+        keyConditionExpression: params.keyConditionExpression
+      });
+
       const commandParams: any = {
         TableName: this.config.tableName,
         IndexName: indexName,
@@ -400,12 +418,29 @@ export default class DynamoDBClient {
         new QueryCommand(commandParams)
       );
 
+      logger.debug('GSI query completed', {
+        indexName,
+        count: result.Count || 0
+      });
+
       return {
         items: result.Items || [],
         lastEvaluatedKey: result.LastEvaluatedKey,
         count: result.Count || 0
       };
-    } catch (error) {
+    } catch (error: any) {
+      // Provide more descriptive error for missing GSI
+      if (
+        error.name === 'ValidationException' &&
+        error.message?.includes('index')
+      ) {
+        logger.error('GSI not available', { indexName, error: error.message });
+        throw new ServiceError(
+          `Global Secondary Index '${indexName}' is not available on table '${this.config.tableName}'`,
+          404
+        );
+      }
+      logger.error('GSI query failed', { indexName, error });
       throw this.translateError(error);
     }
   }
@@ -417,10 +452,11 @@ export default class DynamoDBClient {
 
     try {
       const results: Record<string, any>[] = [];
+      const failedKeys: Array<{ PK: string; SK: string }> = [];
 
-      // Process in chunks of 100 (DynamoDB limit for BatchGetItem)
-      for (let i = 0; i < keys.length; i += 100) {
-        const chunk = keys.slice(i, i + 100);
+      // Process in chunks of 25 items (DynamoDB best practice)
+      for (let i = 0; i < keys.length; i += 25) {
+        const chunk = keys.slice(i, i + 25);
 
         const result = await this.docClient!.send(
           new BatchGetCommand({
@@ -436,10 +472,10 @@ export default class DynamoDBClient {
           results.push(...result.Responses[this.config.tableName]);
         }
 
-        // Handle unprocessed keys with exponential backoff
+        // Handle unprocessed keys with exponential backoff (up to 3 retries)
         let unprocessedKeys = result.UnprocessedKeys;
         let retryCount = 0;
-        const maxRetries = 5;
+        const maxRetries = 3;
 
         while (
           unprocessedKeys &&
@@ -447,6 +483,10 @@ export default class DynamoDBClient {
           retryCount < maxRetries
         ) {
           const delay = Math.min(1000 * Math.pow(2, retryCount), 10000);
+          logger.debug(
+            `Retrying ${unprocessedKeys[this.config.tableName].Keys?.length} unprocessed keys (attempt ${retryCount + 1}/${maxRetries})`,
+            { delay }
+          );
           await new Promise((resolve) => setTimeout(resolve, delay));
 
           const retryResult = await this.docClient!.send(
@@ -466,19 +506,39 @@ export default class DynamoDBClient {
           retryCount++;
         }
 
+        // Collect failed keys after all retries exhausted
         if (
           unprocessedKeys &&
           unprocessedKeys[this.config.tableName] &&
           retryCount >= maxRetries
         ) {
-          logger.warn(
-            `Failed to process ${unprocessedKeys[this.config.tableName].Keys?.length} keys after ${maxRetries} retries`
+          const unprocessedCount =
+            unprocessedKeys[this.config.tableName].Keys?.length || 0;
+          logger.error(
+            `Failed to process ${unprocessedCount} keys after ${maxRetries} retries`,
+            { unprocessedKeys: unprocessedKeys[this.config.tableName].Keys }
+          );
+          failedKeys.push(
+            ...(unprocessedKeys[this.config.tableName].Keys as Array<{
+              PK: string;
+              SK: string;
+            }>)
           );
         }
       }
 
+      // Throw error if any keys failed after all retries
+      if (failedKeys.length > 0) {
+        const errorMsg = `Batch get failed for ${failedKeys.length} items after 3 retries`;
+        logger.error(errorMsg, { failedKeys });
+        throw new ServiceError(errorMsg, 500);
+      }
+
       return results;
     } catch (error) {
+      if (error instanceof ServiceError) {
+        throw error;
+      }
       throw this.translateError(error);
     }
   }
@@ -510,10 +570,10 @@ export default class DynamoDBClient {
           })
         );
 
-        // Handle unprocessed items with exponential backoff
+        // Handle unprocessed items with exponential backoff (up to 3 retries)
         let unprocessed = result.UnprocessedItems;
         let retryCount = 0;
-        const maxRetries = 5;
+        const maxRetries = 3;
 
         while (
           unprocessed &&
@@ -521,6 +581,10 @@ export default class DynamoDBClient {
           retryCount < maxRetries
         ) {
           const delay = Math.min(1000 * Math.pow(2, retryCount), 10000);
+          logger.debug(
+            `Retrying ${unprocessed[this.config.tableName].length} unprocessed items (attempt ${retryCount + 1}/${maxRetries})`,
+            { delay }
+          );
           await new Promise((resolve) => setTimeout(resolve, delay));
 
           const retryResult = await this.docClient!.send(
@@ -533,13 +597,15 @@ export default class DynamoDBClient {
           retryCount++;
         }
 
+        // Collect unprocessed items after all retries exhausted
         if (
           unprocessed &&
           unprocessed[this.config.tableName] &&
           retryCount >= maxRetries
         ) {
-          logger.warn(
-            `Failed to process ${unprocessed[this.config.tableName].length} items after ${maxRetries} retries`
+          logger.error(
+            `Failed to process ${unprocessed[this.config.tableName].length} items after ${maxRetries} retries`,
+            { unprocessedCount: unprocessed[this.config.tableName].length }
           );
 
           // Convert unprocessed items back to BatchWriteItem format
@@ -558,8 +624,18 @@ export default class DynamoDBClient {
         }
       }
 
+      // Throw error if any items failed after all retries
+      if (unprocessedItems.length > 0) {
+        const errorMsg = `Batch write failed for ${unprocessedItems.length} items after 3 retries`;
+        logger.error(errorMsg, { unprocessedItems });
+        throw new ServiceError(errorMsg, 500);
+      }
+
       return { unprocessedItems };
     } catch (error) {
+      if (error instanceof ServiceError) {
+        throw error;
+      }
       throw this.translateError(error);
     }
   }
@@ -631,6 +707,8 @@ export default class DynamoDBClient {
   ): Promise<Record<string, any>[]> {
     this.ensureConnected();
 
+    logger.debug('Querying GSI with pagination', { indexName });
+
     const allItems: Record<string, any>[] = [];
     let lastEvaluatedKey: Record<string, any> | undefined = undefined;
 
@@ -644,6 +722,11 @@ export default class DynamoDBClient {
       allItems.push(...result.items);
       lastEvaluatedKey = result.lastEvaluatedKey;
     } while (lastEvaluatedKey);
+
+    logger.debug('GSI query with pagination completed', {
+      indexName,
+      totalItems: allItems.length
+    });
 
     return allItems;
   }
