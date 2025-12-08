@@ -27,57 +27,82 @@ These scripts help manage DynamoDB tables for local development and AWS deployme
 ### Create DynamoDB Table
 
 ```bash
-# Create table for local development
-./scripts/dynamodb/create-table.sh --local
+# Create table for local development (default)
+./scripts/dynamodb/create-table.sh
 
 # Create table in AWS with custom name
-./scripts/dynamodb/create-table.sh --table-name microrealestate-dev
+./scripts/dynamodb/create-table.sh --aws --table-name microrealestate-dev
 
-# Create table in specific region
-./scripts/dynamodb/create-table.sh --table-name microrealestate-prod --region us-west-2
-
-# Use environment variables from .env
-./scripts/dynamodb/create-table.sh
+# Create table in specific AWS region
+./scripts/dynamodb/create-table.sh --aws --table-name microrealestate-prod --region us-west-2
 ```
 
 Creates a DynamoDB table with the required schema (PK/SK keys and GSIs for Email and ContactEmail).
 
+**Default behavior:** Uses local DynamoDB at localhost:8000 with dummy credentials.
+
 **Options:**
-- `--local` - Use local DynamoDB at localhost:8000
-- `--table-name NAME` - Specify table name (default: from DYNAMODB_TABLE_NAME env var)
-- `--region REGION` - AWS region (default: from DYNAMODB_REGION env var)
-- `--endpoint URL` - Custom DynamoDB endpoint
+- `--aws` - Use AWS DynamoDB instead of local
+- `--table-name NAME` - Specify table name (default: microrealestate-local)
+- `--region REGION` - AWS region (default: us-east-1)
+- `--endpoint URL` - Custom DynamoDB endpoint (default: http://localhost:8000)
 - `--help` - Show usage information
 
 ### Verify Table Configuration
 
 ```bash
-# Verify table using .env configuration
+# Verify local table (default)
 ./scripts/dynamodb/confirm-table.sh
 
-# Verify local table
-./scripts/dynamodb/confirm-table.sh --local
-
-# Verify specific table
-./scripts/dynamodb/confirm-table.sh --table-name microrealestate-dev
+# Verify AWS table
+./scripts/dynamodb/confirm-table.sh --aws --table-name microrealestate-dev
 ```
 
 Checks that the DynamoDB table exists and has the correct configuration (key schema, billing mode, GSIs).
 
+**Default behavior:** Checks local DynamoDB at localhost:8000.
+
 ### Verify Index Status
 
 ```bash
-# Check index status using .env configuration
+# Check local index status (default)
 ./scripts/dynamodb/confirm-indexes.sh
 
-# Check local table indexes
-./scripts/dynamodb/confirm-indexes.sh --local
+# Check AWS table indexes
+./scripts/dynamodb/confirm-indexes.sh --aws --table-name microrealestate-dev
 
 # Monitor index creation progress
 watch -n 5 ./scripts/dynamodb/confirm-indexes.sh
 ```
 
 Verifies that all Global Secondary Indexes (EmailIndex, ContactEmailIndex) are in ACTIVE status.
+
+**Default behavior:** Checks local DynamoDB at localhost:8000.
+
+### List Items in Table
+
+```bash
+# List 10 items from local table (default)
+./scripts/dynamodb/list-items.sh
+
+# List 20 items
+./scripts/dynamodb/list-items.sh --limit 20
+
+# List only REALM entities
+./scripts/dynamodb/list-items.sh --type REALM
+
+# List accounts in JSON format
+./scripts/dynamodb/list-items.sh --type ACCOUNT --json
+
+# List from AWS table
+./scripts/dynamodb/list-items.sh --aws --table-name microrealestate-dev
+```
+
+Lists items from the DynamoDB table with optional filtering by entity type.
+
+**Default behavior:** Lists 10 items from local DynamoDB in table format.
+
+**Entity types:** REALM, ACCOUNT, LEASE, PROPERTY, TENANT, DOCUMENT, TEMPLATE
 
 ## Quick Start for DynamoDB Local Development
 
@@ -86,15 +111,15 @@ Verifies that all Global Secondary Indexes (EmailIndex, ContactEmailIndex) are i
    docker-compose up -d dynamodb-local
    ```
 
-2. Create the table:
+2. Create the table (defaults to local):
    ```bash
-   ./scripts/dynamodb/create-table.sh --local
+   ./scripts/dynamodb/create-table.sh
    ```
 
-3. Verify setup:
+3. Verify setup (defaults to local):
    ```bash
-   ./scripts/dynamodb/confirm-table.sh --local
-   ./scripts/dynamodb/confirm-indexes.sh --local
+   ./scripts/dynamodb/confirm-table.sh
+   ./scripts/dynamodb/confirm-indexes.sh
    ```
 
 4. Update your `.env` file:

@@ -109,6 +109,7 @@ export default class DynamoDBClient {
         throw new Error('config is required');
       }
       DynamoDBClient.instance = new DynamoDBClient(DynamoDBClientTESTConfig);
+      DynamoDBClient.instance.connect(); // HACK
     }
     return DynamoDBClient.instance;
   }
@@ -121,7 +122,12 @@ export default class DynamoDBClient {
     this.config = config;
   }
 
+  isConnected = false;
   async connect() {
+    if (this.isConnected) {
+      return;
+    }
+    this.isConnected = true;
     if (!this.client) {
       logger.debug(
         `connecting to DynamoDB at ${this.config.endpoint || 'AWS'}...`

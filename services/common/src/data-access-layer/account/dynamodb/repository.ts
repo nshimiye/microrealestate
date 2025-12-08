@@ -3,7 +3,6 @@ import { AccountBaseRepository } from './base-repository.js';
 import { IAccountRepository } from '../interface.js';
 import { CollectionTypes } from '@microrealestate/types';
 import logger from '../../../utils/logger.js';
-import ServiceError from '../../../utils/serviceerror.js';
 import { randomUUID } from 'crypto';
 
 /**

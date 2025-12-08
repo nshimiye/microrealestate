@@ -112,9 +112,8 @@ export abstract class RealmBaseRepository extends BaseRealmCRUDRepository<Collec
       // Hash application secrets before storing
       const realmWithHashedSecrets = { ...entity };
 
-      if (realmWithHashedSecrets.applications) {
         realmWithHashedSecrets.applications =
-          realmWithHashedSecrets.applications.map((app) => {
+          (realmWithHashedSecrets.applications||[]).map((app) => {
             // Only hash if this is a new application (no createdDate)
             if (!app.createdDate) {
               return {
@@ -125,7 +124,6 @@ export abstract class RealmBaseRepository extends BaseRealmCRUDRepository<Collec
             }
             return app;
           });
-      }
 
       const item = this.toItem(realmWithHashedSecrets);
 
