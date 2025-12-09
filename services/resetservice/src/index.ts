@@ -1,5 +1,5 @@
 import * as Express from 'express';
-import { EnvironmentConfig, logger, Service } from '@microrealestate/common';
+import { EnvironmentConfig, logger, Service, DynamoDBClient } from '@microrealestate/common';
 import routes from './routes.js';
 import { swaggerSpec } from './openapi.js';
 
@@ -32,6 +32,19 @@ async function Main() {
     });
 
     await service.startUp();
+
+
+     DynamoDBClient.getInstance({
+        tableName: 'microrealestate-local',
+        region: 'us-east-1',
+        endpoint: 'http://dynamodb-local:8000',
+        credentials: {
+          accessKeyId: 'local',
+          secretAccessKey: 'local'
+        }
+      });
+
+
   } catch (error) {
     logger.error(String(error));
     service?.shutDown(-1);

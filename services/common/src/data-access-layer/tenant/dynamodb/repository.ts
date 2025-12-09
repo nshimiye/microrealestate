@@ -156,25 +156,12 @@ export default class TenantRepository
         expressionAttributeValues[':sk'] = `TENANT#${filter.tenantId}`;
       }
 
-      // Build filter expression for term range
-      let filterExpression: string | undefined;
-      if (filter.startTerm && filter.endTerm) {
-        // Filter for tenants with rents in the term range
-        filterExpression =
-          'Rents[*].term >= :startTerm AND Rents[*].term <= :endTerm';
-        expressionAttributeValues[':startTerm'] = filter.startTerm;
-        expressionAttributeValues[':endTerm'] = filter.endTerm;
-      } else if (filter.startTerm) {
-        // Filter for tenants with rents matching exact term
-        filterExpression = 'Rents[*].term = :startTerm';
-        expressionAttributeValues[':startTerm'] = filter.startTerm;
-      }
-
+      // Note: DynamoDB doesn't support array wildcard syntax like Rents[*].term
+      // We'll filter in memory after querying all tenants
       const result = await this.client.queryAll({
         keyConditionExpression,
         expressionAttributeNames,
         expressionAttributeValues,
-        filterExpression,
         scanIndexForward: options?.sort?.name === 'desc' ? false : true
       });
 
@@ -440,6 +427,7 @@ export default class TenantRepository
    * Find tenants with aggregation pipeline
    * This is a complex MongoDB aggregation that needs to be reimplemented for DynamoDB
    * Requires querying tenants, templates, and documents, then joining in memory
+   * TODO: write a test for this function
    */
   async findWithAggregation(
     realmId: string,
@@ -449,16 +437,165 @@ export default class TenantRepository
       throw new Error('Realm ID must be a non-empty string');
     }
 
-    // TODO: Full implementation requires:
-    // 1. Query tenants (all or specific tenantId)
-    // 2. Query templates with type='fileDescriptor' and linkedResourceIds matching leaseId
-    // 3. Query documents matching tenantId, leaseId, templateId
-    // 4. Join in memory to create filesToUpload structure
-    // 5. Populate leaseId and properties.propertyId references
-    
-    throw new Error(
-      'findWithAggregation requires complex multi-entity joins - not yet implemented for DynamoDB'
-    );
+    try {
+      // Import repositories dynamically to avoid circular dependencies
+      const { getTemplateRepository } = await import('../../template/index.js');
+      const { getDocumentRepository } = await import('../../document/index.js');
+      const { getLeaseRepository } = await import('../../lease/index.js');
+      const { getPropertyRepository } = await import('../../property/index.js');
+
+      const templateRepository = getTemplateRepository();
+      const documentRepository = getDocumentRepository();
+      const leaseRepository = getLeaseRepository();
+      const propertyRepository = getPropertyRepository();
+
+      // Step 1: Query tenants (all or specific tenantId)
+      let tenants: CollectionTypes.Tenant[];
+      if (tenantId) {
+        const tenant = await this.findOne({ tenantId, realmId });
+        tenants = tenant ? [tenant] : [];
+      } else {
+        tenants = await this.findByRealm(realmId);
+      }
+
+      if (tenants.length === 0) {
+        return [];
+      }
+
+      // Step 2: Query all templates with type='fileDescriptor' in the realm
+      const allTemplates = await templateRepository.findAll(realmId);
+      const fileDescriptorTemplates = allTemplates.filter(
+        (template) => template.type === 'fileDescriptor'
+      );
+
+      // Step 3: Query all documents in the realm
+      const allDocuments = await documentRepository.findAll(realmId);
+
+      // Step 4: Build a map of leaseIds to populate
+      const leaseIds = new Set<string>();
+      tenants.forEach((tenant) => {
+        if (tenant.leaseId) {
+          leaseIds.add(tenant.leaseId as string);
+        }
+      });
+
+      // Query leases for population
+      const leases = leaseIds.size > 0 
+        ? await leaseRepository.findByIds(Array.from(leaseIds), realmId)
+        : [];
+      const leaseMap = new Map(leases.map((lease) => [lease._id, lease]));
+
+      // Step 5: Build a map of propertyIds to populate
+      const propertyIds = new Set<string>();
+      tenants.forEach((tenant) => {
+        if (tenant.properties && Array.isArray(tenant.properties)) {
+          tenant.properties.forEach((prop: any) => {
+            if (prop.propertyId) {
+              propertyIds.add(prop.propertyId);
+            }
+          });
+        }
+      });
+
+      // Query properties for population
+      const properties = propertyIds.size > 0
+        ? await Promise.all(
+            Array.from(propertyIds).map((propId) =>
+              propertyRepository.findById(propId, realmId)
+            )
+          )
+        : [];
+      const propertyMap = new Map(
+        properties.filter((p) => p !== null).map((prop) => [prop!._id, prop])
+      );
+
+      // Step 6: Process each tenant and build filesToUpload
+      const results = tenants.map((tenant) => {
+        const tenantLeaseId = tenant.leaseId;
+
+        // Filter templates that are linked to this tenant's lease
+        const relevantTemplates = fileDescriptorTemplates.filter((template) => {
+          if (!template.linkedResourceIds || !tenantLeaseId) {
+            return false;
+          }
+          return template.linkedResourceIds.includes(tenantLeaseId as string);
+        });
+
+        // For each template, find matching documents
+        const filesToUpload = relevantTemplates.map((template) => {
+          const matchingDocuments = allDocuments.filter(
+            (doc) =>
+              doc.tenantId === tenant._id &&
+              doc.leaseId === tenantLeaseId &&
+              doc.templateId === template._id &&
+              doc.type === 'file'
+          );
+
+          // Project documents to remove unnecessary fields
+          const documents = matchingDocuments.map((doc) => ({
+            _id: doc._id,
+            name: doc.name,
+            description: doc.description,
+            expiryDate: doc.expiryDate,
+            createdDate: doc.createdDate,
+            updatedDate: doc.updatedDate
+          }));
+
+          return {
+            _id: template._id,
+            name: template.name,
+            description: template.description,
+            required: template.required || false,
+            requiredOnceContractTerminated:
+              template.requiredOnceContractTerminated || false,
+            documents
+          };
+        });
+
+        // Populate leaseId reference
+        const populatedLeaseId = tenantLeaseId && leaseMap.has(tenantLeaseId as string)
+          ? leaseMap.get(tenantLeaseId as string)
+          : tenantLeaseId;
+
+        // Populate properties.propertyId references
+        const populatedProperties = tenant.properties
+          ? tenant.properties.map((prop: any) => {
+              if (prop.propertyId && propertyMap.has(prop.propertyId)) {
+                return {
+                  ...prop,
+                  propertyId: propertyMap.get(prop.propertyId)
+                };
+              }
+              return prop;
+            })
+          : [];
+
+        return {
+          ...tenant,
+          leaseId: populatedLeaseId,
+          properties: populatedProperties,
+          filesToUpload
+        };
+      });
+
+      // Sort by name ascending
+      results.sort((a, b) => a.name.localeCompare(b.name));
+
+      logger.debug('Found tenants with aggregation', {
+        realmId,
+        tenantId,
+        count: results.length
+      });
+
+      return results;
+    } catch (error) {
+      logger.error('Failed to find tenants with aggregation', {
+        realmId,
+        tenantId,
+        error
+      });
+      throw error;
+    }
   }
 
   /**

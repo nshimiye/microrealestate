@@ -116,7 +116,7 @@ export abstract class BaseOthersCRUDRepository<T> extends BaseRepository<T> {
       // Use conditional update to prevent race conditions
       await this.client.updateItem(
         key,
-        itemUpdates,
+        JSON.parse(JSON.stringify(itemUpdates)),
         'attribute_exists(PK)', // Ensure item still exists
         undefined,
         undefined

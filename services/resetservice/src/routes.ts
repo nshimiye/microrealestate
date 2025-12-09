@@ -1,5 +1,48 @@
 import * as Express from 'express';
-import { Middlewares, Service } from '@microrealestate/common';
+import { DynamoDBClient, Middlewares, Service } from '@microrealestate/common';
+
+async function clearMongoDBTestData() {
+        const mongoClient = Service.getInstance().mongoClient;
+      await Promise.all(
+        [
+          'accounts',
+          'contracts',
+          'documents',
+          'emails',
+          'landloards',
+          'leases',
+          'occupants',
+          'properties',
+          'realms',
+          'templates'
+        ].map((collection) =>
+          mongoClient?.dropCollection(collection).catch(console.error)
+        )
+      );
+}
+
+async function clearDynamoDBTestData() {
+  const client = DynamoDBClient.getInstance();
+
+  // Scan all items in the table
+  const allItems = await client.scanAll();
+  
+  if (allItems.length === 0) {
+    return;
+  }
+
+  // Prepare delete requests for all items
+  const deleteRequests = allItems.map((item: Record<string, any>) => ({
+    deleteRequest: {
+      PK: item.PK,
+      SK: item.SK
+    }
+  }));
+
+  // Delete all items using batch write
+  await client.batchWrite(deleteRequests);
+}
+
 
 /**
  * @openapi
@@ -70,23 +113,12 @@ routes.delete(
   '/reset',
   Middlewares.asyncWrapper(
     async (req: Express.Request, res: Express.Response<string>) => {
-      const mongoClient = Service.getInstance().mongoClient;
-      await Promise.all(
-        [
-          'accounts',
-          'contracts',
-          'documents',
-          'emails',
-          'landloards',
-          'leases',
-          'occupants',
-          'properties',
-          'realms',
-          'templates'
-        ].map((collection) =>
-          mongoClient?.dropCollection(collection).catch(console.error)
-        )
-      );
+      const useDynamoDB = String(process.env['USE_DYNAMODB']) === 'true'
+      if(useDynamoDB) {
+        await clearDynamoDBTestData();
+      } else {
+        await clearMongoDBTestData();
+      }
 
       const redis = Service.getInstance().redisClient;
       const keys = await redis?.keys('*');
@@ -97,5 +129,6 @@ routes.delete(
     }
   )
 );
+
 
 export default routes;

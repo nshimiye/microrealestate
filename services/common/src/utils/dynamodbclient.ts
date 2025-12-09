@@ -284,6 +284,7 @@ export default class DynamoDBClient {
     expressionAttributeValues?: Record<string, any>
   ): Promise<void> {
     this.ensureConnected();
+    logger.info(JSON.stringify({key, updates, conditionExpression, expressionAttributeNames, expressionAttributeValues}, null, 2))
 
     try {
       // Build update expression
@@ -297,7 +298,7 @@ export default class DynamoDBClient {
 
       let nameCounter = 0;
       let valueCounter = 0;
-
+      console.log(Object.entries(updates));
       for (const [field, value] of Object.entries(updates)) {
         const namePlaceholder = `#field${nameCounter++}`;
         const valuePlaceholder = `:value${valueCounter++}`;
@@ -313,6 +314,7 @@ export default class DynamoDBClient {
         ExpressionAttributeNames: attrNames,
         ExpressionAttributeValues: attrValues
       };
+    logger.info(JSON.stringify({ params }, null, 2))
 
       if (conditionExpression) {
         params.ConditionExpression = conditionExpression;
@@ -341,6 +343,7 @@ export default class DynamoDBClient {
 
   async query(params: QueryParams): Promise<QueryResult> {
     this.ensureConnected();
+    logger.info(JSON.stringify({params}, null, 2))
 
     try {
       const commandParams: any = {
