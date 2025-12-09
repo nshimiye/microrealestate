@@ -186,6 +186,7 @@ export async function all(req, res) {
   const year = req.params?.year
     ? Number(req.params?.year)
     : new Date().getFullYear;
+console.log('[all]', req.params);
 
   const tenants = await _fetchData(String(realm._id), year);
 
@@ -204,7 +205,6 @@ async function incomingTenantsAsCsv(req, res) {
     ? Number(req.params?.year)
     : new Date().getFullYear;
   i18n.setLocale(realm.locale);
-
   const tenants = await _fetchData(realmId, year);
   const data = _incomingTenants(tenants, realm.locale, realm.currency, false);
   const fields = [

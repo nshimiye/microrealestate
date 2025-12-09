@@ -1,15 +1,21 @@
 import { Crypto, logger } from '@microrealestate/common';
-import AWS from 'aws-sdk';
+import {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+  DeleteObjectsCommand
+} from '@aws-sdk/client-s3';
 import fs from 'fs-extra';
 
 function _initS3(b2Config) {
-  const credentials = new AWS.Credentials(
-    Crypto.decrypt(b2Config.keyId),
-    Crypto.decrypt(b2Config.applicationKey)
-  );
-  AWS.config.credentials = credentials;
-  const ep = new AWS.Endpoint(b2Config.endpoint);
-  return new AWS.S3({ endpoint: ep });
+  return new S3Client({
+    credentials: {
+      accessKeyId: Crypto.decrypt(b2Config.keyId),
+      secretAccessKey: Crypto.decrypt(b2Config.applicationKey)
+    },
+    endpoint: b2Config.endpoint,
+    region: 'us-east-1' // Required by SDK v3, but not used by B2
+  });
 }
 
 export function isEnabled(b2Config) {
@@ -21,72 +27,71 @@ export function isEnabled(b2Config) {
   );
 }
 
-export function downloadFile(b2Config, url) {
+export async function downloadFile(b2Config, url) {
   logger.debug(`download ${url} from s3`);
-  const s3 = _initS3(b2Config);
-  return s3
-    .getObject({
+  try {
+    const s3 = _initS3(b2Config);
+    
+    const command = new GetObjectCommand({
       Bucket: b2Config.bucket,
       Key: url
-    })
-    .createReadStream();
+    });
+    
+    const result = await s3.send(command);
+    
+    return result.Body;
+  } catch (error) {
+    logger.error(`cannot download file ${url} from s3`, error);
+    throw error;
+  }
 }
 
-export function uploadFile(b2Config, { file, fileName, url }) {
+export async function uploadFile(b2Config, { file, fileName, url }) {
   logger.debug(`upload ${url} to s3`);
-  return new Promise((resolve, reject) => {
-    try {
-      const s3 = _initS3(b2Config);
-      const fileStream = fs.createReadStream(file.path);
-      s3.putObject(
-        {
-          Bucket: b2Config.bucket,
-          Key: url,
-          Body: fileStream
-        },
-        (err, data) => {
-          if (err) {
-            return reject(err);
-          }
-          resolve({
-            fileName,
-            key: url,
-            versionId: data.VersionId
-          });
-        }
-      );
-    } catch (error) {
-      reject(error);
-    }
-  });
+  try {
+    const s3 = _initS3(b2Config);
+    const fileStream = fs.createReadStream(file.path);
+    
+    const command = new PutObjectCommand({
+      Bucket: b2Config.bucket,
+      Key: url,
+      Body: fileStream
+    });
+    
+    const result = await s3.send(command);
+    
+    return {
+      fileName,
+      key: url,
+      versionId: result.VersionId
+    };
+  } catch (error) {
+    logger.error(`cannot upload file ${url} to s3`, error);
+    throw error;
+  }
 }
 
-export function deleteFiles(b2Config, urlsIds) {
+export async function deleteFiles(b2Config, urlsIds) {
   logger.debug(`delete ${JSON.stringify(urlsIds)} from s3`);
-  return new Promise((resolve, reject) => {
-    try {
-      const s3 = _initS3(b2Config);
-      s3.deleteObjects(
-        {
-          Bucket: b2Config.bucket,
-          Delete: {
-            Objects: urlsIds.map(({ url, versionId }) => ({
-              Key: url,
-              VersionId: versionId
-            }))
-          }
-        },
-        (err, data) => {
-          if (err) {
-            logger.error(err);
-            return reject(err);
-          }
-          logger.debug({ data });
-          resolve(data);
-        }
-      );
-    } catch (error) {
-      reject(error);
-    }
-  });
+  try {
+    const s3 = _initS3(b2Config);
+    
+    const command = new DeleteObjectsCommand({
+      Bucket: b2Config.bucket,
+      Delete: {
+        Objects: urlsIds.map(({ url, versionId }) => ({
+          Key: url,
+          VersionId: versionId
+        }))
+      }
+    });
+    
+    const result = await s3.send(command);
+    logger.debug({ data: result });
+    
+    return result;
+  } catch (error) {
+    logger.error(error);
+    throw error;
+  }
 }
