@@ -85,6 +85,7 @@ async function Main() {
     await service.init({
       name: 'Authenticator',
       useMongo: true,
+      useDynamo: true, // TODO use env variable
       useRedis: true,
       onStartUp
     });
