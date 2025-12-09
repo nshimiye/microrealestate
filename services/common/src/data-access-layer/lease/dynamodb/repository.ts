@@ -3,6 +3,7 @@ import { IDataBaseSession, ILeaseRepository } from '../interface.js';
 import LeaseBaseRepository from './base-repository.js';
 import logger from '../../../utils/logger.js';
 import { getTenantRepository } from '../../tenant/index.js';
+import { randomUUID } from 'crypto';
 
 /**
  * DynamoDB implementation of Lease repository
@@ -41,15 +42,29 @@ export default class LeaseRepository
     }
 
     try {
-      const lease = await super.create(leaseData as CollectionTypes.Lease);
+      // Extract ID generation to separate variable
+      const leaseId = leaseData._id || randomUUID();
+      
+      // Validate that leaseId is defined
+      if (!leaseId) {
+        throw new Error('Failed to generate lease ID');
+      }
+
+      // Create lease with validated ID
+      const lease = {
+        ...leaseData,
+        _id: leaseId
+      } as CollectionTypes.Lease;
+
+      const createdLease = await super.create(lease);
 
       logger.debug('Lease created successfully', {
-        leaseId: lease._id,
-        realmId: lease.realmId,
-        name: lease.name
+        leaseId: createdLease._id,
+        realmId: createdLease.realmId,
+        name: createdLease.name
       });
 
-      return lease;
+      return createdLease;
     } catch (error) {
       logger.error('Failed to create lease', { leaseData, error });
       throw error;

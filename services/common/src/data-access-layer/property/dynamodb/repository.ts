@@ -2,6 +2,7 @@ import { IPropertyRepository } from '../interface.js';
 import { CollectionTypes } from '@microrealestate/types';
 import { PropertyBaseRepository } from './base-repository.js';
 import logger from '../../../utils/logger.js';
+import { randomUUID } from 'crypto';
 
 type DeepPartial<T> = {
   [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
@@ -31,11 +32,22 @@ export default class PropertyRepository
     if (!propertyData.realmId) {
       throw new Error('Property data must include realmId');
     }
-    if (!propertyData._id) {
-      throw new Error('Property data must include _id');
+
+    // Extract ID generation to separate variable
+    const propertyId = propertyData._id || randomUUID();
+    
+    // Validate that propertyId is defined
+    if (!propertyId) {
+      throw new Error('Failed to generate property ID');
     }
 
-    return super.create(propertyData as CollectionTypes.Property);
+    // Create property with validated ID
+    const property = {
+      ...propertyData,
+      _id: propertyId
+    } as CollectionTypes.Property;
+
+    return super.create(property);
   }
 
   /**

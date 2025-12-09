@@ -2,6 +2,7 @@ import { TemplateBaseRepository } from './base-repository.js';
 import { ITemplateRepository, IDataBaseSession } from '../interface.js';
 import { CollectionTypes } from '@microrealestate/types';
 import logger from '../../../utils/logger.js';
+import { randomUUID } from 'crypto';
 
 /**
  * DynamoDB implementation of Template repository
@@ -10,6 +11,36 @@ export default class DynamoRepository
   extends TemplateBaseRepository
   implements ITemplateRepository
 {
+  /**
+   * Create a new template
+   * Generates UUID for template ID if not provided
+   */
+  async create(
+    templateData: Partial<CollectionTypes.Template>
+  ): Promise<CollectionTypes.Template> {
+    if (!templateData || typeof templateData !== 'object') {
+      throw new Error('Template data must be an object');
+    }
+    if (!templateData.realmId) {
+      throw new Error('Template data must include realmId');
+    }
+
+    // Extract ID generation to separate variable
+    const templateId = templateData._id || randomUUID();
+    
+    // Validate that templateId is defined
+    if (!templateId) {
+      throw new Error('Failed to generate template ID');
+    }
+
+    // Create template with validated ID
+    const template = {
+      ...templateData,
+      _id: templateId
+    } as CollectionTypes.Template;
+
+    return super.create(template);
+  }
   /**
    * Find all templates in a realm
    * Uses base class findByRealm method with TEMPLATE# prefix

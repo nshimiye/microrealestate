@@ -3,6 +3,7 @@ import { CollectionTypes } from '@microrealestate/types';
 import { BaseRepository } from '../../dynamo/base.js';
 import logger from '../../../utils/logger.js';
 import { BaseRealmCRUDRepository } from '../../dynamo/base-realm-crud.js';
+import { randomUUID } from 'crypto';
 
 /**
  * Repository for Realm entities.
@@ -109,8 +110,19 @@ export abstract class RealmBaseRepository extends BaseRealmCRUDRepository<Collec
    */
   async create(entity: CollectionTypes.Realm): Promise<CollectionTypes.Realm> {
     try {
+      // Extract ID generation to separate variable
+      const realmId = entity._id || randomUUID();
+      
+      // Validate that realmId is defined
+      if (!realmId) {
+        throw new Error('Failed to generate realm ID');
+      }
+
       // Hash application secrets before storing
-      const realmWithHashedSecrets = { ...entity };
+      const realmWithHashedSecrets = { 
+        ...entity,
+        _id: realmId
+      };
 
         realmWithHashedSecrets.applications =
           (realmWithHashedSecrets.applications||[]).map((app) => {

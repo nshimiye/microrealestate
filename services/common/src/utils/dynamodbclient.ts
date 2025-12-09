@@ -217,6 +217,7 @@ export default class DynamoDBClient {
 
   async putItem(item: Record<string, any>): Promise<void> {
     this.ensureConnected();
+    // ensure PK,SK, and _id are defined and do not contain undefined
 
     try {
       const itemSize = JSON.stringify(item).length;

@@ -84,8 +84,13 @@ export default class DynamoRepository extends AccountBaseRepository implements I
       // Hash password before storing (bcrypt with 10 rounds)
       const hashedPassword = bcrypt.hashSync(password, 10);
 
-      // Generate account ID
+      // Extract ID generation to separate variable
       const accountId = randomUUID();
+      
+      // Validate that accountId is defined
+      if (!accountId) {
+        throw new Error('Failed to generate account ID');
+      }
 
       // Create entity with hashed password and normalized email
       const account: CollectionTypes.Account = {

@@ -16,6 +16,15 @@ export abstract class BaseRealmCRUDRepository<T> extends BaseRepository<T> {
    */
   async create(entity: T): Promise<T> {
     try {
+      // Validate that entity has a defined _id before calling toItem
+      const entityId = (entity as any)._id;
+      if (!entityId) {
+        throw new ServiceError(
+          'Entity must have a defined _id before creation',
+          400
+        );
+      }
+
       const item = this.toItem(entity);
 
       // Validate item size before attempting to write
@@ -25,7 +34,8 @@ export abstract class BaseRealmCRUDRepository<T> extends BaseRepository<T> {
 
       logger.debug('Entity created successfully', {
         PK: item.PK,
-        SK: item.SK
+        SK: item.SK,
+        entityId: entityId
       });
 
       return entity;

@@ -45,8 +45,16 @@ export default class TenantRepository
       throw new Error('Tenant data must include realmId');
     }
 
+    // Extract ID generation to separate variable
+    const tenantId = tenantData._id || randomUUID();
+    
+    // Validate that tenantId is defined
+    if (!tenantId) {
+      throw new Error('Failed to generate tenant ID');
+    }
+
     const tenant: CollectionTypes.Tenant = {
-      _id: tenantData._id || randomUUID(),
+      _id: tenantId,
       realmId: tenantData.realmId,
       name: tenantData.name || '',
       isCompany: tenantData.isCompany || false,

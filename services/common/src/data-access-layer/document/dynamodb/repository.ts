@@ -1,7 +1,7 @@
 import { DocumentBaseRepository } from './base-repository.js';
 import { IDocumentRepository } from '../interface.js';
 import { CollectionTypes } from '@microrealestate/types';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 import logger from '../../../utils/logger.js';
 
 /**
@@ -58,8 +58,16 @@ export default class DynamoRepository
       throw new Error('Document data must include type');
     }
 
+    // Extract ID generation to separate variable
+    const documentId = documentData._id || randomUUID();
+    
+    // Validate that documentId is defined
+    if (!documentId) {
+      throw new Error('Failed to generate document ID');
+    }
+
     const document: CollectionTypes.Document = {
-      _id: documentData._id || uuidv4(),
+      _id: documentId,
       realmId: documentData.realmId,
       tenantId: documentData.tenantId || '',
       leaseId: documentData.leaseId || '',
