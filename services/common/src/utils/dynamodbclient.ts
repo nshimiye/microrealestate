@@ -107,25 +107,58 @@ process.on('SIGINT', async () => {
   }
 });
 
-const DynamoDBClientTESTConfig = {
-  region: 'us-east-1',
-  endpoint: 'http://dynamodb-local:8000',
-  tableName: 'microrealestate-local',
-  credentials: {
-    accessKeyId: 'local',
-    secretAccessKey: 'local'
-  }
-}
+// const DynamoDBClientTESTConfig = {
+//   region: 'us-east-1',
+//   endpoint: 'http://dynamodb-local:8000',
+//   tableName: 'microrealestate-local',
+//   credentials: {
+//     accessKeyId: 'local',
+//     secretAccessKey: 'local'
+//   }
+// }
+
 export default class DynamoDBClient {
   private static instance: DynamoDBClient | null = null;
 
-  static getInstance(config?: DynamoDBClientConfig) {
+  private static extractConfigFromEnv(envConfig: EnvironmentConfig): DynamoDBClientConfig {
+    const envValues = envConfig.getValues();
+    
+    // Extract DynamoDB configuration from environment variables
+    const tableName = envValues.DYNAMODB_TABLE_NAME;
+    if (!tableName) {
+      throw new Error('DYNAMODB_TABLE_NAME is required in environment configuration');
+    }
+
+    const config: DynamoDBClientConfig = {
+      region: envValues.DYNAMODB_REGION,
+      tableName
+    };
+
+    // Add endpoint if provided (for local development)
+    if (envValues.DYNAMODB_ENDPOINT) {
+      config.endpoint = envValues.DYNAMODB_ENDPOINT;
+    }
+
+    // Add credentials if both access key and secret are provided
+    if (envValues.DYNAMODB_ACCESS_KEY_ID && envValues.DYNAMODB_SECRET_ACCESS_KEY) {
+      config.credentials = {
+        accessKeyId: envValues.DYNAMODB_ACCESS_KEY_ID,
+        secretAccessKey: envValues.DYNAMODB_SECRET_ACCESS_KEY
+      };
+    }
+
+    console.log('DYNAMODB CONFIG', config);
+    return config;
+  }
+
+  static getInstance(envConfig?: EnvironmentConfig) {
     if (!DynamoDBClient.instance) {
-      if (!config) {
-        throw new Error('config is required');
+      if (!envConfig) {
+        throw new Error('envConfig is required');
+      } else {
+        const config = DynamoDBClient.extractConfigFromEnv(envConfig);
+        DynamoDBClient.instance = new DynamoDBClient(config);
       }
-      DynamoDBClient.instance = new DynamoDBClient(DynamoDBClientTESTConfig);
-      DynamoDBClient.instance.connect(); // HACK
     }
     return DynamoDBClient.instance;
   }
@@ -791,6 +824,7 @@ export default class DynamoDBClient {
         commandParams.ProjectionExpression = params.projectionExpression;
       }
 
+      console.log('commandParams', commandParams);
       const result = await this.docClient!.send(
         new ScanCommand(commandParams)
       );

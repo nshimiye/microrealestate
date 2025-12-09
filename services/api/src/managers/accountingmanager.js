@@ -3,6 +3,12 @@ import i18n from 'i18n';
 import moment from 'moment';
 import { Parser } from 'json2csv';
 
+/**
+ * 
+ * @param {string} realmId 
+ * @param {number} year 
+ * @returns 
+ */
 async function _fetchData(realmId, year) {
   const tenantRepository = DataAccess.getTenantRepository();
   return tenantRepository.findAllByYear(realmId, year);
@@ -185,8 +191,8 @@ export async function all(req, res) {
   const realm = req.realm;
   const year = req.params?.year
     ? Number(req.params?.year)
-    : new Date().getFullYear;
-console.log('[all]', req.params);
+    : new Date().getFullYear();
+console.log('[all]', req.params, year);
 
   const tenants = await _fetchData(String(realm._id), year);
 

@@ -1,7 +1,7 @@
 import DynamoDBClient from '../../utils/dynamodbclient.js';
 import ServiceError from '../../utils/serviceerror.js';
 import logger from '../../utils/logger.js';
-// import Service from '../../utils/service.js';
+import Service from '../../utils/service.js';
 
 /**
  * Abstract base class for DynamoDB repositories.
@@ -11,24 +11,12 @@ import logger from '../../utils/logger.js';
  * @template T The entity type this repository manages
  */
 export abstract class BaseRepository<T> {
-  protected client: DynamoDBClient;
-
-  constructor() {
-    // const service = Service.getInstance();
-    // const { DYNAMODB_TABLE_NAME, DYNAMODB_REGION, DYNAMODB_ENDPOINT } =
-      // service.envConfig.getValues();
-    const DYNAMODB_TABLE_NAME = 'microrealestate-local', DYNAMODB_REGION = 'us-east-1', DYNAMODB_ENDPOINT  = 'http://dynamodb-local:8000';
-    if (!DYNAMODB_TABLE_NAME) {
-      throw new Error(
-        'DYNAMODB_TABLE_NAME is required when USE_DYNAMODB is true'
-      );
+  private _client: DynamoDBClient|null = null;
+  protected get client(): DynamoDBClient {
+    if(!this._client) {
+      this._client = DynamoDBClient.getInstance();
     }
-
-    this.client = DynamoDBClient.getInstance({
-      tableName: DYNAMODB_TABLE_NAME,
-      region: DYNAMODB_REGION,
-      endpoint: DYNAMODB_ENDPOINT
-    });
+    return this._client;
   }
 
   /**

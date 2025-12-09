@@ -319,7 +319,7 @@ export default class MongoRepository implements ITenantRepository {
     return tenants;
   }
 
-  async findAllByYear(realmId: string, year: string): Promise<any[]> {
+  async findAllByYear(realmId: string, year: number): Promise<any[]> {
     return TenantModel.aggregate([
       {
         $match: {

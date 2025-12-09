@@ -126,7 +126,7 @@ export async function update(req, res) {
     );
   }
 
-  // retrieve the document from mongo & update it
+  // retrieve the document & update it
   const previousRealm = await realmRepository.findOne({
     _id: req.body._id
   });
@@ -160,7 +160,7 @@ export async function update(req, res) {
       );
     } else {
       updatedRealm.thirdParties.smtp.password =
-        previousRealm.thirdParties.smtp.password;
+        previousRealm.thirdParties.smtp?.password;
     }
   }
 
@@ -172,7 +172,7 @@ export async function update(req, res) {
       );
     } else {
       updatedRealm.thirdParties.mailgun.apiKey =
-        previousRealm.thirdParties.mailgun.apiKey;
+        previousRealm.thirdParties.mailgun?.apiKey;
     }
   }
 

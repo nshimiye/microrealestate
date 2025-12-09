@@ -66,5 +66,7 @@ export type EnvironmentValues = {
   DYNAMODB_TABLE_NAME?: string;
   DYNAMODB_REGION?: string;
   DYNAMODB_ENDPOINT?: string;
+  DYNAMODB_ACCESS_KEY_ID?: string;
+  DYNAMODB_SECRET_ACCESS_KEY?: string;
   USE_DYNAMODB?: boolean;
 };

@@ -118,7 +118,7 @@ export interface ITenantRepository {
   /**
    * Find all tenants by year
    */
-  findAllByYear(realmId: string, year: string): Promise<any[]>;
+  findAllByYear(realmId: string, year: number): Promise<any[]>;
 
   /**
    * Find all tenants in a realm

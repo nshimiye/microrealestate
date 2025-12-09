@@ -43,6 +43,7 @@ async function Main() {
       name: 'tenantapi',
       useRequestParsers: true,
       useMongo: true,
+      useDynamo: true, // TODO use env variable
       onStartUp
     });
 

@@ -54,6 +54,7 @@ async function Main() {
     await service.init({
       name: 'api',
       useMongo: true,
+      useDynamo: true, // TODO use env variable
       useAxios: true,
       onStartUp
     });

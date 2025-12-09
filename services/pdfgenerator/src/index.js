@@ -58,6 +58,7 @@ async function Main() {
     await service.init({
       name: 'PdfGenerator',
       useMongo: true,
+      useDynamo: true, // TODO use env variable
       onStartUp,
       onShutDown
     });

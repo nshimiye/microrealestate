@@ -22,7 +22,14 @@ const baseEnvironmentValues = {
   APPCREDZ_TOKEN_SECRET: process.env.APPCREDZ_TOKEN_SECRET,
   RESET_TOKEN_SECRET: process.env.RESET_TOKEN_SECRET,
   CIPHER_KEY: process.env.CIPHER_KEY,
-  CIPHER_IV_KEY: process.env.CIPHER_IV_KEY
+  CIPHER_IV_KEY: process.env.CIPHER_IV_KEY,
+
+  USE_DYNAMODB: process.env.USE_DYNAMODB === 'true',
+  DYNAMODB_ENDPOINT: process.env.DYNAMODB_ENDPOINT || 'http://dynamodb-local:8000',
+  DYNAMODB_REGION: process.env.DYNAMODB_REGION || 'us-east-1',
+  DYNAMODB_TABLE_NAME: process.env.DYNAMODB_TABLE_NAME || 'microrealestate-local',
+  DYNAMODB_ACCESS_KEY_ID: process.env.DYNAMODB_ACCESS_KEY_ID || 'local',
+  DYNAMODB_SECRET_ACCESS_KEY: process.env.DYNAMODB_SECRET_ACCESS_KEY || 'local'
 } as const;
 
 const keysToEscape: string[] = [

@@ -602,11 +602,11 @@ export default class TenantRepository
    * Find all tenants by year
    * Filters tenants with rents in the specified year
    */
-  async findAllByYear(realmId: string, year: string): Promise<any[]> {
+  async findAllByYear(realmId: string, year: number): Promise<any[]> {
     if (!realmId || typeof realmId !== 'string') {
       throw new Error('Realm ID must be a non-empty string');
     }
-    if (!year || typeof year !== 'string') {
+    if (!year || typeof year !== 'number') {
       throw new Error('Year must be a non-empty string');
     }
 

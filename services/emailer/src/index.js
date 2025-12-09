@@ -89,6 +89,7 @@ async function Main() {
     await service.init({
       name: 'Emailer',
       useMongo: true,
+      useDynamo: true, // TODO use env variable
       onStartUp
     });
     await service.startUp();

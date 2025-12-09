@@ -7,6 +7,7 @@ export type ServiceOptions = {
   name: string;
   useMongo?: boolean;
   useRedis?: boolean;
+  useDynamo?: boolean;
   useAxios?: boolean;
   useRequestParsers?: boolean;
   exposeHealthCheck?: boolean;

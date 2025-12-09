@@ -27,23 +27,12 @@ async function Main() {
     await service.init({
       name: 'Reset service',
       useMongo: true,
+      useDynamo: true, // TODO use env variable
       useRedis: true,
       onStartUp
     });
 
     await service.startUp();
-
-
-     DynamoDBClient.getInstance({
-        tableName: 'microrealestate-local',
-        region: 'us-east-1',
-        endpoint: 'http://dynamodb-local:8000',
-        credentials: {
-          accessKeyId: 'local',
-          secretAccessKey: 'local'
-        }
-      });
-
 
   } catch (error) {
     logger.error(String(error));
