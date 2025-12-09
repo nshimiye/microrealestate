@@ -53,6 +53,8 @@ const routes = Express.Router();
  *       All Redis keys are also deleted.
  *     tags:
  *       - Database Reset
+ *     security:
+ *       - cookieAuth: []
  *     responses:
  *       200:
  *         description: Database reset successful

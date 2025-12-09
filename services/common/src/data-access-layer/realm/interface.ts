@@ -118,4 +118,18 @@ export interface IRealmRepository {
     realmId: string,
     updateData: DeepPartial<CollectionTypes.Realm>
   ): Promise<CollectionTypes.Realm | null>;
+
+
+  /**
+   * Given a member email, find all realm objects that has a member with this email
+   */
+  findManyByEmail(email:string): Promise<CollectionTypes.Realm[]>;
+
+  /**
+   * Given an application clientId, find the first matching realm that this application on it
+   * @param req 
+   * @param user 
+   * @param clientId 
+   */
+  findByClientId(clientId:string): Promise<CollectionTypes.Realm | null>;
 }

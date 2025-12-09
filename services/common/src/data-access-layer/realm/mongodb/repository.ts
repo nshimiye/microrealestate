@@ -1,4 +1,4 @@
-import { CollectionTypes } from '@microrealestate/types';
+import { CollectionTypes, MongooseDocument } from '@microrealestate/types';
 import RealmModel from '../../../collections/realm.js';
 type DeepPartial<T> = {
   [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
@@ -34,6 +34,7 @@ export default class RealmRepository {
     }
 
     const realm = await RealmModel.findById(id).lean();
+        // realm._id = String(realm._id);
     return realm;
   }
 
@@ -190,5 +191,34 @@ export default class RealmRepository {
 
     // Return plain object
     return realm.toObject();
+  }
+
+  async findManyByEmail(email: string):  Promise<CollectionTypes.Realm[]> {
+
+    
+  const found = await RealmModel.find<MongooseDocument<CollectionTypes.Realm>>({
+                members: { $elemMatch: { email } }
+              })
+              
+    return found.map((realm) => realm.toObject())
+              .map((realm) => {
+                realm._id = String(realm._id);
+                return realm;
+              });
+  }
+
+
+  async findByClientId(clientId:string): Promise<CollectionTypes.Realm|null> {
+            const realm = (
+          await RealmModel.findOne<MongooseDocument<CollectionTypes.Realm>>({
+            applications: { $elemMatch: { clientId } }
+          })
+        )?.toObject();
+        if(!realm) {
+          return null;
+        }
+        realm._id = String(realm._id);
+
+        return realm;
   }
 }

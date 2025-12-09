@@ -15,6 +15,7 @@ import {
   UpdateCommand,
   DeleteCommand,
   QueryCommand,
+  ScanCommand,
   BatchGetCommand,
   BatchWriteCommand
 } from '@aws-sdk/lib-dynamodb';
@@ -44,6 +45,21 @@ export interface QueryParams {
 }
 
 export interface QueryResult {
+  items: Record<string, any>[];
+  lastEvaluatedKey?: Record<string, any>;
+  count: number;
+}
+
+export interface ScanParams {
+  filterExpression?: string;
+  expressionAttributeNames?: Record<string, string>;
+  expressionAttributeValues?: Record<string, any>;
+  limit?: number;
+  exclusiveStartKey?: Record<string, any>;
+  projectionExpression?: string;
+}
+
+export interface ScanResult {
   items: Record<string, any>[];
   lastEvaluatedKey?: Record<string, any>;
   count: number;
@@ -734,6 +750,74 @@ export default class DynamoDBClient {
       indexName,
       totalItems: allItems.length
     });
+
+    return allItems;
+  }
+
+  async scan(params: ScanParams = {}): Promise<ScanResult> {
+    this.ensureConnected();
+
+    try {
+      const commandParams: any = {
+        TableName: this.config.tableName
+      };
+
+      if (params.filterExpression) {
+        commandParams.FilterExpression = params.filterExpression;
+      }
+
+      if (params.expressionAttributeNames) {
+        commandParams.ExpressionAttributeNames =
+          params.expressionAttributeNames;
+      }
+
+      if (params.expressionAttributeValues) {
+        commandParams.ExpressionAttributeValues =
+          params.expressionAttributeValues;
+      }
+
+      if (params.limit) {
+        commandParams.Limit = params.limit;
+      }
+
+      if (params.exclusiveStartKey) {
+        commandParams.ExclusiveStartKey = params.exclusiveStartKey;
+      }
+
+      if (params.projectionExpression) {
+        commandParams.ProjectionExpression = params.projectionExpression;
+      }
+
+      const result = await this.docClient!.send(
+        new ScanCommand(commandParams)
+      );
+
+      return {
+        items: result.Items || [],
+        lastEvaluatedKey: result.LastEvaluatedKey,
+        count: result.Count || 0
+      };
+    } catch (error) {
+      throw this.translateError(error);
+    }
+  }
+
+  async scanAll(params: ScanParams = {}): Promise<Record<string, any>[]> {
+    this.ensureConnected();
+
+    const allItems: Record<string, any>[] = [];
+    let lastEvaluatedKey: Record<string, any> | undefined = undefined;
+
+    do {
+      const scanParams = {
+        ...params,
+        exclusiveStartKey: lastEvaluatedKey
+      };
+
+      const result = await this.scan(scanParams);
+      allItems.push(...result.items);
+      lastEvaluatedKey = result.lastEvaluatedKey;
+    } while (lastEvaluatedKey);
 
     return allItems;
   }
