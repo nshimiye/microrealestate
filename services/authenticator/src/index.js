@@ -78,7 +78,7 @@ async function Main() {
           sameSite: 'strict',
           secure: tokenCookieSecure,
           domain: tokenCookieDomain
-        }
+        },
       })
     );
 
