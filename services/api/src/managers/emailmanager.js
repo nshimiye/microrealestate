@@ -1,4 +1,4 @@
-import { Collections, logger, Service } from '@microrealestate/common';
+import { DataAccess, logger, Service } from '@microrealestate/common';
 import axios from 'axios';
 import moment from 'moment';
 
@@ -49,10 +49,13 @@ export async function send(req, res) {
     'YYYYMMDDHH'
   );
 
-  const tenants = await Collections.Tenant.find({
-    _id: { $in: tenantIds },
-    realmId: realm._id
-  }).lean();
+  // Handle empty tenant list
+  if (!tenantIds || tenantIds.length === 0) {
+    return res.json([]);
+  }
+
+  const tenantRepository = DataAccess.getTenantRepository();
+  const tenants = await tenantRepository.findByIds(tenantIds, String(realm._id));
 
   const statusList = await Promise.all(
     tenants.map(async (tenant, index) => {
@@ -61,18 +64,20 @@ export async function send(req, res) {
 
       // Send email to tenant
       try {
-        const status = await _sendEmail(req, {
+        const statusArray = await _sendEmail(req, {
           name: tenant.name,
           tenantId,
           document,
           term
         });
+        const status = statusArray[0] || {};
         return {
           name: tenant.name,
           tenantId,
           document,
           term,
-          ...status
+          email: status.email,
+          status: status.status
         };
       } catch (error) {
         logger.error(error);

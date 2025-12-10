@@ -5,6 +5,7 @@ import migratedb from '../scripts/migration.js';
 import path from 'path';
 import { restoreDB } from '../scripts/dbbackup.js';
 import routes from './routes.js';
+import { swaggerSpec } from './openapi.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -25,6 +26,11 @@ async function onStartUp(application) {
   // migrate db to the new models
   await migratedb();
 
+  // Expose OpenAPI spec endpoint
+  application.get('/openapi.json', (req, res) => {
+    res.setHeader('Content-Type', 'application/json');
+    res.send(swaggerSpec);
+  });
   application.use(routes());
 }
 
@@ -48,13 +54,14 @@ async function Main() {
     await service.init({
       name: 'api',
       useMongo: true,
+      useDynamo: true, // TODO use env variable
       useAxios: true,
       onStartUp
     });
     await service.startUp();
   } catch (err) {
     logger.error(err);
-    service.shutdown(1);
+    service.shutDown(1);
   }
 }
 

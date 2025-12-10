@@ -443,5 +443,6 @@ export function toProperty(inputProperty, inputOccupant, inputOccupants) {
     });
   }
 
-  return property;
+  // remove undefined values
+  return JSON.parse(JSON.stringify(property));
 }

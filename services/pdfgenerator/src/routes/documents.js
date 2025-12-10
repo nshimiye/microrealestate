@@ -1,7 +1,7 @@
 import * as pdf from '../pdf.js';
 import * as s3 from '../utils/s3.js';
 import {
-  Collections,
+  DataAccess,
   Format,
   logger,
   Middlewares,
@@ -15,31 +15,42 @@ import moment from 'moment';
 import path from 'path';
 import uploadMiddleware from '../utils/uploadmiddelware.js';
 
-async function _getTempate(organization, templateId) {
-  const template = await Collections.Template.findOne({
-    _id: templateId,
-    realmId: organization._id
-  }).lean();
-
-  return template;
+/**
+ * Fetch template by ID and realm
+ * @private
+ * @param {Object} organization - Organization/realm object
+ * @param {string} templateId - Template ID
+ * @returns {Promise<Object|null>} Template object or null if not found
+ */
+async function _getTemplate(organization, templateId) {
+  const templateRepository = DataAccess.getTemplateRepository();
+  return await templateRepository.findById(templateId, String(organization._id));
 }
 
+/**
+ * Fetch and compute template values from tenant, lease, and properties
+ * @private
+ * @param {Object} organization - Organization/realm object
+ * @param {string} tenantId - Tenant ID
+ * @param {string} leaseId - Lease ID
+ * @returns {Promise<Object>} Template values object for document generation
+ */
 async function _getTemplateValues(organization, tenantId, leaseId) {
-  const tenant = await Collections.Tenant.findOne({
-    _id: tenantId,
-    realmId: organization._id
-  })
-    .populate('properties.propertyId')
-    .lean();
+  const tenantRepository = DataAccess.getTenantRepository();
+  const leaseRepository = DataAccess.getLeaseRepository();
 
-  const lease = await Collections.Lease.findOne({
-    _id: leaseId,
-    realmId: organization._id
-  }).lean();
+  // Fetch tenant with populated properties
+  const tenant = await tenantRepository.findByIdWithProperties(
+    tenantId,
+    String(organization._id)
+  );
+
+  // Fetch lease
+  const lease = await leaseRepository.findById(leaseId, String(organization._id));
 
   // compute rent, expenses and surface from properties
   const PropertyGlobals = tenant.properties.reduce(
-    (acc, { rent, expenses = [], property: { surface } }) => {
+    (acc, { rent, expenses = [], propertyId: { surface } }) => {
       acc.rentAmount += rent;
       acc.expensesAmount +=
         expenses.reduce((sum, { amount }) => {
@@ -224,23 +235,156 @@ function _resolveTemplates(element, templateValues) {
   return element;
 }
 
+/**
+ * @openapi
+ * components:
+ *   schemas:
+ *     Document:
+ *       type: object
+ *       properties:
+ *         _id:
+ *           type: string
+ *           description: Unique document identifier
+ *         realmId:
+ *           type: string
+ *           description: Organization identifier
+ *         tenantId:
+ *           type: string
+ *           description: Tenant identifier
+ *         leaseId:
+ *           type: string
+ *           description: Lease identifier
+ *         templateId:
+ *           type: string
+ *           description: Template identifier used to generate the document
+ *         type:
+ *           type: string
+ *           enum: [text, file]
+ *           description: Document type (text for generated documents, file for uploaded files)
+ *         name:
+ *           type: string
+ *           description: Document name
+ *         description:
+ *           type: string
+ *           description: Document description
+ *         contents:
+ *           type: object
+ *           description: Document contents in TipTap JSON format (for text type)
+ *         html:
+ *           type: string
+ *           description: Document HTML representation (for text type)
+ *         mimeType:
+ *           type: string
+ *           description: MIME type of the file (for file type)
+ *         url:
+ *           type: string
+ *           description: File URL or path (for file type)
+ *         versionId:
+ *           type: string
+ *           description: S3 version ID (for file type)
+ *         expiryDate:
+ *           type: string
+ *           format: date
+ *           description: Document expiry date (for file type)
+ *     DocumentUploadResponse:
+ *       type: object
+ *       properties:
+ *         fileName:
+ *           type: string
+ *           description: Uploaded file name
+ *         key:
+ *           type: string
+ *           description: S3 key or file path
+ *   responses:
+ *     UnauthorizedError:
+ *       description: Access token is missing or invalid
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               error:
+ *                 type: string
+ *                 example: Unauthorized
+ *     NotFoundError:
+ *       description: Resource not found
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               error:
+ *                 type: string
+ *                 example: document not found
+ *     ValidationError:
+ *       description: Invalid request parameters
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               error:
+ *                 type: string
+ *                 example: missing fields
+ *     InternalServerError:
+ *       description: Internal server error
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               error:
+ *                 type: string
+ *                 example: Internal server error
+ */
 export default function () {
-  /**
-   * routes:
-   * GET    /documents                         -> JSON
-   * GET    /documents/:id                     -> JSON | pdf | image file
-   * GET    /documents/:document/:id/:term     -> pdf file
-   * POST   /documents/upload                  -> JSON
-   * (input: FormData with pdf or image file)
-   * POST   /documents                         -> JSON
-   * (input: Document model)
-   * PATCH  /documents                         -> JSON
-   * input: Document model
-   * DELETE /documents/:ids
-   */
   const { UPLOADS_DIRECTORY } = Service.getInstance().envConfig.getValues();
   const documentsApi = express.Router();
 
+  /**
+   * @openapi
+   * /documents/{document}/{id}/{term}:
+   *   get:
+   *     summary: Generate PDF document for a specific term
+   *     description: Generates and downloads a PDF document for a tenant's specific term
+   *     tags:
+   *       - Documents
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: document
+   *         required: true
+   *         schema:
+   *           type: string
+   *         description: Document type (e.g., invoice, contract, notice)
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: string
+   *         description: Tenant or entity identifier
+   *       - in: path
+   *         name: term
+   *         required: true
+   *         schema:
+   *           type: string
+   *         description: Term identifier (e.g., month/year)
+   *     responses:
+   *       200:
+   *         description: PDF file download
+   *         content:
+   *           application/pdf:
+   *             schema:
+   *               type: string
+   *               format: binary
+   *       401:
+   *         $ref: '#/components/responses/UnauthorizedError'
+   *       404:
+   *         $ref: '#/components/responses/NotFoundError'
+   *       500:
+   *         $ref: '#/components/responses/InternalServerError'
+   */
   documentsApi.get(
     '/:document/:id/:term',
     Middlewares.asyncWrapper(async (req, res) => {
@@ -254,15 +398,40 @@ export default function () {
     })
   );
 
+  /**
+   * @openapi
+   * /documents:
+   *   get:
+   *     summary: Get all documents
+   *     description: Retrieves all documents for the authenticated organization
+   *     tags:
+   *       - Documents
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: List of documents
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: array
+   *               items:
+   *                 $ref: '#/components/schemas/Document'
+   *       401:
+   *         $ref: '#/components/responses/UnauthorizedError'
+   *       404:
+   *         $ref: '#/components/responses/NotFoundError'
+   *       500:
+   *         $ref: '#/components/responses/InternalServerError'
+   */
   documentsApi.get(
     '/',
     Middlewares.asyncWrapper(async (req, res) => {
       const organizationId = req.headers.organizationid;
 
-      const documentsFound = await Collections.Document.find({
-        realmId: organizationId
-      });
-      if (!documentsFound) {
+      const documentRepository = DataAccess.getDocumentRepository();
+      const documentsFound = await documentRepository.findAll(organizationId);
+      if (!documentsFound || documentsFound.length === 0) {
         throw new ServiceError('document not found', 404);
       }
 
@@ -270,6 +439,47 @@ export default function () {
     })
   );
 
+  /**
+   * @openapi
+   * /documents/{id}:
+   *   get:
+   *     summary: Get document by ID
+   *     description: Retrieves a specific document by ID, returns JSON for text documents or file download for file documents
+   *     tags:
+   *       - Documents
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: string
+   *         description: Document identifier
+   *     responses:
+   *       200:
+   *         description: Document details or file download
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/Document'
+   *           application/pdf:
+   *             schema:
+   *               type: string
+   *               format: binary
+   *           image/*:
+   *             schema:
+   *               type: string
+   *               format: binary
+   *       401:
+   *         $ref: '#/components/responses/UnauthorizedError'
+   *       404:
+   *         $ref: '#/components/responses/NotFoundError'
+   *       422:
+   *         $ref: '#/components/responses/ValidationError'
+   *       500:
+   *         $ref: '#/components/responses/InternalServerError'
+   */
   documentsApi.get(
     '/:id',
     Middlewares.asyncWrapper(async (req, res) => {
@@ -280,10 +490,11 @@ export default function () {
         throw new ServiceError('missing fields', 422);
       }
 
-      let documentFound = await Collections.Document.findOne({
-        _id: documentId,
-        realmId: req.realm._id
-      });
+      const documentRepository = DataAccess.getDocumentRepository();
+      const documentFound = await documentRepository.findById(
+        documentId,
+        String(req.realm._id)
+      );
 
       if (!documentFound) {
         logger.warn(`document ${documentId} not found`);
@@ -340,6 +551,49 @@ export default function () {
     })
   );
 
+  /**
+   * @openapi
+   * /documents/upload:
+   *   post:
+   *     summary: Upload a document file
+   *     description: Uploads a PDF or image file to the system (file system or S3)
+   *     tags:
+   *       - Documents
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         multipart/form-data:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - file
+   *               - fileName
+   *               - s3Dir
+   *             properties:
+   *               file:
+   *                 type: string
+   *                 format: binary
+   *                 description: File to upload (PDF or image)
+   *               fileName:
+   *                 type: string
+   *                 description: Name for the uploaded file
+   *               s3Dir:
+   *                 type: string
+   *                 description: S3 directory path
+   *     responses:
+   *       201:
+   *         description: File uploaded successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/DocumentUploadResponse'
+   *       401:
+   *         $ref: '#/components/responses/UnauthorizedError'
+   *       500:
+   *         $ref: '#/components/responses/InternalServerError'
+   */
   documentsApi.post(
     '/upload',
     uploadMiddleware(),
@@ -371,6 +625,74 @@ export default function () {
     })
   );
 
+  /**
+   * @openapi
+   * /documents:
+   *   post:
+   *     summary: Create a new document
+   *     description: Creates a new document from a template or as a file descriptor
+   *     tags:
+   *       - Documents
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - tenantId
+   *               - leaseId
+   *             properties:
+   *               tenantId:
+   *                 type: string
+   *                 description: Tenant identifier
+   *               leaseId:
+   *                 type: string
+   *                 description: Lease identifier
+   *               templateId:
+   *                 type: string
+   *                 description: Template identifier to use for generation
+   *               type:
+   *                 type: string
+   *                 enum: [text, file]
+   *                 description: Document type
+   *               name:
+   *                 type: string
+   *                 description: Document name
+   *               description:
+   *                 type: string
+   *                 description: Document description
+   *               mimeType:
+   *                 type: string
+   *                 description: MIME type (for file type)
+   *               url:
+   *                 type: string
+   *                 description: File URL (for file type)
+   *               versionId:
+   *                 type: string
+   *                 description: S3 version ID (for file type)
+   *               expiryDate:
+   *                 type: string
+   *                 format: date
+   *                 description: Expiry date (for file type)
+   *     responses:
+   *       201:
+   *         description: Document created successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/Document'
+   *       401:
+   *         $ref: '#/components/responses/UnauthorizedError'
+   *       404:
+   *         $ref: '#/components/responses/NotFoundError'
+   *       422:
+   *         $ref: '#/components/responses/ValidationError'
+   *       500:
+   *         $ref: '#/components/responses/InternalServerError'
+   */
   documentsApi.post(
     '/',
     Middlewares.asyncWrapper(async (req, res) => {
@@ -388,14 +710,14 @@ export default function () {
 
       let template;
       if (dataSet.templateId) {
-        template = await _getTempate(req.realm, dataSet.templateId);
+        template = await _getTemplate(req.realm, dataSet.templateId);
         if (!template) {
           throw new ServiceError('template not found', 404);
         }
       }
 
       const documentToCreate = {
-        realmId: req.realm._id,
+        realmId: String(req.realm._id),
         tenantId: dataSet.tenantId,
         leaseId: dataSet.leaseId,
         templateId: dataSet.templateId,
@@ -430,12 +752,58 @@ export default function () {
         }
       }
 
-      const createdDocument =
-        await Collections.Document.create(documentToCreate);
+      const documentRepository = DataAccess.getDocumentRepository();
+      const createdDocument = await documentRepository.create(documentToCreate);
       return res.status(201).json(createdDocument);
     })
   );
 
+  /**
+   * @openapi
+   * /documents:
+   *   patch:
+   *     summary: Update a document
+   *     description: Updates an existing text document (file documents cannot be modified)
+   *     tags:
+   *       - Documents
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             allOf:
+   *               - $ref: '#/components/schemas/Document'
+   *               - type: object
+   *                 required:
+   *                   - _id
+   *     responses:
+   *       201:
+   *         description: Document updated successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/Document'
+   *       401:
+   *         $ref: '#/components/responses/UnauthorizedError'
+   *       404:
+   *         $ref: '#/components/responses/NotFoundError'
+   *       405:
+   *         description: Document type cannot be modified
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 error:
+   *                   type: string
+   *                   example: document cannot be modified
+   *       422:
+   *         $ref: '#/components/responses/ValidationError'
+   *       500:
+   *         $ref: '#/components/responses/InternalServerError'
+   */
   documentsApi.patch(
     '/',
     Middlewares.asyncWrapper(async (req, res) => {
@@ -451,18 +819,14 @@ export default function () {
         throw new ServiceError('document cannot be modified', 405);
       }
 
-      const updatedDocument = await Collections.Document.findOneAndUpdate(
+      const documentRepository = DataAccess.getDocumentRepository();
+      const updatedDocument = await documentRepository.update(
+        doc._id,
+        organizationId,
         {
-          _id: doc._id,
+          ...doc,
           realmId: organizationId
-        },
-        {
-          $set: {
-            ...doc,
-            realmId: organizationId
-          }
-        },
-        { new: true }
+        }
       );
 
       if (!updatedDocument) {
@@ -473,17 +837,47 @@ export default function () {
     })
   );
 
+  /**
+   * @openapi
+   * /documents/{ids}:
+   *   delete:
+   *     summary: Delete documents
+   *     description: Deletes one or more documents by their IDs (comma-separated)
+   *     tags:
+   *       - Documents
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: ids
+   *         required: true
+   *         schema:
+   *           type: string
+   *         description: Comma-separated list of document IDs
+   *         example: "507f1f77bcf86cd799439011,507f191e810c19729de860ea"
+   *     responses:
+   *       204:
+   *         description: Documents deleted successfully
+   *       401:
+   *         $ref: '#/components/responses/UnauthorizedError'
+   *       404:
+   *         $ref: '#/components/responses/NotFoundError'
+   *       500:
+   *         $ref: '#/components/responses/InternalServerError'
+   */
   documentsApi.delete(
     '/:ids',
     Middlewares.asyncWrapper(async (req, res) => {
       const organizationId = req.headers.organizationid;
       const documentIds = req.params.ids.split(',');
 
+      const documentRepository = DataAccess.getDocumentRepository();
+
       // fetch documents
-      const documents = await Collections.Document.find({
-        _id: { $in: documentIds },
-        realmId: organizationId
-      });
+      const documents = await documentRepository.findByIds(
+        documentIds,
+        organizationId
+      );
 
       // delete documents from file systems
       documents.forEach((doc) => {
@@ -508,12 +902,12 @@ export default function () {
       }
 
       // delete documents from mongo
-      const result = await Collections.Document.deleteMany({
-        _id: { $in: documentIds },
-        realmId: organizationId
-      });
+      const deletedCount = await documentRepository.deleteMany(
+        documentIds,
+        organizationId
+      );
 
-      if (!result.acknowledged) {
+      if (deletedCount === 0) {
         throw new ServiceError('document not found', 404);
       }
 

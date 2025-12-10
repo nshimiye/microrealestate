@@ -1,18 +1,4 @@
-import { Collections, logger, ServiceError } from '@microrealestate/common';
-
-/**
- * @returns a Set of leaseId (_id)
- */
-async function _leaseUsedByTenant(realm) {
-  const tenants = await Collections.Tenant.find(
-    { realmId: realm._id },
-    { realmId: 1, leaseId: 1 }
-  ).lean();
-  return tenants.reduce((acc, { leaseId }) => {
-    acc.add(leaseId);
-    return acc;
-  }, new Set());
-}
+import { DataAccess, logger, ServiceError } from '@microrealestate/common';
 
 ////////////////////////////////////////////////////////////////////////////////
 // Exported functions
@@ -25,14 +11,22 @@ export async function add(req, res) {
   }
 
   const realm = req.realm;
-  const dbLease = new Collections.Lease({
+  const leaseRepository = DataAccess.getLeaseRepository();
+  
+  // Calculate active status based on numberOfTerms and timeRange
+  const active = !!lease.active && !!lease.numberOfTerms && !!lease.timeRange;
+  
+  // Create lease using repository
+  const savedLease = await leaseRepository.create({
     ...lease,
-    active: !!lease.active && !!lease.numberOfTerms && !!lease.timeRange,
+    active,
     realmId: realm._id
   });
-  const savedLease = await dbLease.save();
-  const setOfUsedLeases = await _leaseUsedByTenant(realm);
-  savedLease.usedByTenants = setOfUsedLeases.has(savedLease._id);
+  
+  // Enrich with usedByTenants field
+  const setOfUsedLeases = await leaseRepository.findLeaseIdsUsedByTenants(realm._id);
+  savedLease.usedByTenants = setOfUsedLeases.has(savedLease._id.toString());
+  
   res.json(savedLease);
 }
 
@@ -45,34 +39,37 @@ export async function update(req, res) {
     throw new ServiceError('missing fields', 422);
   }
 
+  // Recalculate active status if not explicitly provided
   if (lease.active === undefined) {
     lease.active = lease.numberOfTerms > 0 && !!lease.timeRange;
   }
 
-  const setOfUsedLeases = await _leaseUsedByTenant(realm);
+  const leaseRepository = DataAccess.getLeaseRepository();
+  const setOfUsedLeases = await leaseRepository.findLeaseIdsUsedByTenants(realm._id);
 
-  const dbLease = await Collections.Lease.findOneAndUpdate(
-    {
-      realmId: realm._id,
-      _id: lease._id
-    },
-    // if lease already used by tenants, only allow to update name, description, active fields
-    setOfUsedLeases.has(lease._id)
-      ? {
-          name: lease.name || dbLease.name,
-          description: lease.description ?? dbLease.description,
-          active: lease.active ?? dbLease.active,
-          stepperMode: lease.stepperMode ?? dbLease.stepperMode
-        }
-      : lease,
-    { new: true }
-  ).lean();
+  // Determine update data based on whether lease is used by tenants
+  const updateData = setOfUsedLeases.has(lease._id)
+    ? {
+        // If lease already used by tenants, only allow to update name, description, active, stepperMode fields
+        name: lease.name,
+        description: lease.description,
+        active: lease.active,
+        stepperMode: lease.stepperMode
+      }
+    : lease;
+
+  const dbLease = await leaseRepository.update(
+    lease._id,
+    realm._id,
+    updateData
+  );
 
   if (!dbLease) {
     throw new ServiceError('lease not found', 404);
   }
 
-  dbLease.usedByTenants = setOfUsedLeases.has(dbLease._id);
+  // Enrich with usedByTenants field
+  dbLease.usedByTenants = setOfUsedLeases.has(dbLease._id.toString());
   res.json(dbLease);
 }
 
@@ -85,76 +82,52 @@ export async function remove(req, res) {
     throw new ServiceError('missing fields', 422);
   }
 
-  const setOfUsedLeases = await _leaseUsedByTenant(realm);
+  const leaseRepository = DataAccess.getLeaseRepository();
+  const templateRepository = DataAccess.getTemplateRepository();
+
+  // Check if leases are used by tenants
+  const setOfUsedLeases = await leaseRepository.findLeaseIdsUsedByTenants(realm._id);
   if (leaseIds.some((leaseId) => setOfUsedLeases.has(leaseId))) {
     logger.error('lease used by tenants and cannot be removed');
     throw new ServiceError('missing fields', 422);
   }
 
-  const leases = await Collections.Lease.find({
-    realmId: realm._id,
-    _id: { $in: leaseIds }
-  });
+  // Verify leases exist
+  const leases = await leaseRepository.findByIds(leaseIds, realm._id);
 
   if (!leases.length) {
     throw new ServiceError('lease not found', 404);
   }
 
-  const templates = await Collections.Template.find({
-    realmId: realm._id,
-    linkedResourceIds: { $in: leaseIds }
-  });
+  // Find templates linked to these leases
+  const templates = await templateRepository.findByLinkedResources(leaseIds, realm._id);
 
+  // Identify orphaned templates (linked only to the leases being deleted)
   const templateIdsToRemove = templates
     .filter(({ linkedResourceIds }) => linkedResourceIds.length <= 1)
     .reduce((acc, { _id }) => [...acc, _id], []);
 
-  const session = await Collections.startSession();
-  session.startTransaction();
-  try {
-    await Promise.all([
-      Collections.Lease.deleteMany({
-        _id: { $in: leaseIds },
-        realmId: realm._id
-      }),
-      Collections.Template.deleteMany({
-        _id: { $in: templateIdsToRemove },
-        realmId: realm._id
-      }),
-      Collections.Template.updateMany(
-        {
-          realmId: realm._id,
-          linkedResourceIds: { $in: leaseIds }
-        },
-        {
-          // remove leaseIds from linkedResourceIds
-          $pull: { linkedResourceIds: { $in: leaseIds } }
-        }
-      )
-    ]);
-    await session.commitTransaction();
+    try {
+    // Execute deletion within a transaction
+    const sessionTasks = DataAccess.getSessionTasks();
+    await sessionTasks.deleteManyLeases(leaseIds, templateIdsToRemove, realm);
   } catch (error) {
-    await session.abortTransaction();
     throw new ServiceError(error, 500);
-  } finally {
-    session.endSession();
   }
   res.sendStatus(200);
 }
 
 export async function all(req, res) {
   const realm = req.realm;
-  const setOfUsedLeases = await _leaseUsedByTenant(realm);
-  const dbLeases = await Collections.Lease.find({ realmId: realm._id })
-    .sort({
-      name: 1
-    })
-    .lean();
+  const leaseRepository = DataAccess.getLeaseRepository();
+  
+  const setOfUsedLeases = await leaseRepository.findLeaseIdsUsedByTenants(realm._id);
+  const dbLeases = await leaseRepository.findAll(realm._id);
 
   res.json(
     dbLeases.map((dbLease) => ({
       ...dbLease,
-      usedByTenants: setOfUsedLeases.has(dbLease._id)
+      usedByTenants: setOfUsedLeases.has(dbLease._id.toString())
     }))
   );
 }
@@ -163,16 +136,14 @@ export async function one(req, res) {
   const realm = req.realm;
   const leaseId = req.params.id;
 
-  const dbLease = await Collections.Lease.findOne({
-    _id: leaseId,
-    realmId: realm._id
-  }).lean();
+  const leaseRepository = DataAccess.getLeaseRepository();
+  const dbLease = await leaseRepository.findById(leaseId, realm._id);
 
   if (!dbLease) {
     throw new ServiceError('lease not found', 404);
   }
 
-  const setOfUsedLeases = await _leaseUsedByTenant(realm);
-  dbLease.usedByTenants = setOfUsedLeases.has(dbLease._id);
+  const setOfUsedLeases = await leaseRepository.findLeaseIdsUsedByTenants(realm._id);
+  dbLease.usedByTenants = setOfUsedLeases.has(dbLease._id.toString());
   res.json(dbLease);
 }

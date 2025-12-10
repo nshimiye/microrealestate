@@ -40,7 +40,7 @@ export namespace CollectionTypes {
       role: UserRole;
       clientId: string;
       clientSecret: string;
-      createdDate: Date;
+      createdDate: Date; // this is only available when objects loaded from DB
       expiryDate: Date;
     }[];
     addresses: CollectionTypes.PartAddress[];

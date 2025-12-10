@@ -1,13 +1,15 @@
 import * as FD from './frontdata.js';
-import { Collections } from '@microrealestate/common';
+import { DataAccess } from '@microrealestate/common';
+
+// Get repository instances
+const propertyRepository = DataAccess.getPropertyRepository();
+const tenantRepository = DataAccess.getTenantRepository();
 
 async function _toPropertiesData(realm, inputProperties) {
-  const allTenants = await Collections.Tenant.find({
-    realmId: realm._id,
-    'properties.propertyId': {
-      $in: inputProperties.map(({ _id }) => _id)
-    }
-  }).lean();
+  const allTenants = await tenantRepository.findByPropertyIds(
+    inputProperties.map(({ _id }) => _id),
+    realm._id
+  );
 
   return inputProperties.map((property) => {
     const tenants = allTenants
@@ -30,11 +32,10 @@ async function _toPropertiesData(realm, inputProperties) {
 ////////////////////////////////////////////////////////////////////////////////
 export async function add(req, res) {
   const realm = req.realm;
-  const property = new Collections.Property({
+  const property = await propertyRepository.create({
     ...req.body,
     realmId: realm._id
   });
-  await property.save();
   const properties = await _toPropertiesData(realm, [property]);
   return res.json(properties[0]);
 }
@@ -43,14 +44,11 @@ export async function update(req, res) {
   const realm = req.realm;
   const property = req.body;
 
-  const dbProperty = await Collections.Property.findOneAndUpdate(
-    {
-      realmId: realm._id,
-      _id: property._id
-    },
-    property,
-    { new: true }
-  ).lean();
+  const dbProperty = await propertyRepository.update(
+    property._id,
+    realm._id,
+    property
+  );
 
   const properties = await _toPropertiesData(realm, [dbProperty]);
   return res.json(properties[0]);
@@ -60,10 +58,7 @@ export async function remove(req, res) {
   const realm = req.realm;
   const ids = req.params.ids.split(',');
 
-  await Collections.Property.deleteMany({
-    _id: { $in: ids },
-    realmId: realm._id
-  });
+  await propertyRepository.deleteMany(ids, realm._id);
 
   res.sendStatus(200); // better to return 204
 }
@@ -71,13 +66,7 @@ export async function remove(req, res) {
 export async function all(req, res) {
   const realm = req.realm;
 
-  const dbProperties = await Collections.Property.find({
-    realmId: realm._id
-  })
-    .sort({
-      name: 1
-    })
-    .lean();
+  const dbProperties = await propertyRepository.findAll(realm._id);
 
   const properties = await _toPropertiesData(realm, dbProperties);
   return res.json(properties);
@@ -87,10 +76,7 @@ export async function one(req, res) {
   const realm = req.realm;
   const tenantId = req.params.id;
 
-  const dbProperty = await Collections.Property.findOne({
-    _id: tenantId,
-    realmId: realm._id
-  }).lean();
+  const dbProperty = await propertyRepository.findById(tenantId, realm._id);
 
   const properties = await _toPropertiesData(realm, [dbProperty]);
   return res.json(properties[0]);

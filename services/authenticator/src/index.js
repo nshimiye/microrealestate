@@ -1,10 +1,56 @@
 import { EnvironmentConfig, logger, Service } from '@microrealestate/common';
 import routes from './routes/index.js';
+import { swaggerSpec } from './openapi.js';
 
 Main();
 
+function split(thing) {
+  if (typeof thing === 'string') {
+    return thing.split('/');
+  } else if (thing.fast_slash) {
+    return '';
+  } else {
+    const match = thing
+      .toString()
+      .replace('\\/?', '')
+      .replace('(?=\\/|$)', '$')
+      .match(/^\/\^((?:\\[.*+?^${}()|[\]\\\/]|\w)*)\$\//);
+    return match ? match[1].replace(/\\(.)/g, '$1').split('/') : '';
+  }
+}
+function printRoutes(app, path = []) {
+  app._router?.stack.forEach(function (layer) {
+    if (layer.route) {
+      // Routes registered directly on the app or a router
+      const fullPath = path.concat(layer.route.path).join('');
+      console.log(
+        `${Object.keys(layer.route.methods).join(', ').toUpperCase()} ${fullPath}`
+      );
+    } else if (layer.name === 'router' && layer.handle.stack) {
+      // Nested routers
+      printRoutes(layer.handle, path.concat(split(layer.regexp)));
+    } else if (layer.method) {
+      // Middleware that acts like a route (e.g., app.use without a path)
+      const fullPath = path
+        .concat(split(layer.regexp))
+        .filter(Boolean)
+        .join('');
+      console.log(`${layer.method.toUpperCase()} /${fullPath}`);
+    }
+  });
+}
+
 async function onStartUp(express) {
   express.use(routes());
+  
+  // Expose OpenAPI specification
+  express.get('/openapi.json', (req, res) => {
+    res.setHeader('Content-Type', 'application/json');
+    res.send(swaggerSpec);
+  });
+  
+  console.log(express._router.stack.map((l) => l.name));
+  // printRoutes(express, []);
 }
 
 async function Main() {
@@ -32,13 +78,14 @@ async function Main() {
           sameSite: 'strict',
           secure: tokenCookieSecure,
           domain: tokenCookieDomain
-        }
+        },
       })
     );
 
     await service.init({
       name: 'Authenticator',
       useMongo: true,
+      useDynamo: true, // TODO use env variable
       useRedis: true,
       onStartUp
     });

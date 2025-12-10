@@ -22,6 +22,7 @@ services:
       - REDIS_URL
       - REDIS_PASSWORD
       - MONGO_URL
+      - USE_DYNAMODB=true
     volumes:
       - ./package.json:/usr/app/package.json
       - ./types/src:/usr/app/types/src

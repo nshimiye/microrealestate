@@ -4,6 +4,7 @@ import fs from 'fs';
 import i18n from 'i18n';
 import path from 'path';
 import routes from './routes.js';
+import { swaggerSpec } from './openapi.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -14,6 +15,13 @@ async function onStartUp(express) {
   if (!fs.existsSync(TEMPORARY_DIRECTORY)) {
     fs.mkdirSync(TEMPORARY_DIRECTORY);
   }
+  
+  // Expose OpenAPI specification
+  express.get('/openapi.json', (req, res) => {
+    res.setHeader('Content-Type', 'application/json');
+    res.send(swaggerSpec);
+  });
+
   express.use(routes());
 }
 
@@ -81,6 +89,7 @@ async function Main() {
     await service.init({
       name: 'Emailer',
       useMongo: true,
+      useDynamo: true, // TODO use env variable
       onStartUp
     });
     await service.startUp();

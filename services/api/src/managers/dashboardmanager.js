@@ -1,4 +1,4 @@
-import { Collections } from '@microrealestate/common';
+import { DataAccess } from '@microrealestate/common';
 import moment from 'moment';
 
 export async function all(req, res) {
@@ -8,10 +8,12 @@ export async function all(req, res) {
   const beginOfTheYear = moment(now).startOf('year');
   const endOfTheYear = moment(now).endOf('year');
 
+  // Get repository instances
+  const tenantRepository = DataAccess.getTenantRepository();
+  const propertyRepository = DataAccess.getPropertyRepository();
+
   // count active tenants
-  const allTenants = await Collections.Tenant.find({
-    realmId: req.headers.organizationid
-  });
+  const allTenants = await tenantRepository.findAll(req.headers.organizationid);
   const activeTenants = allTenants.reduce((acc, tenant) => {
     const terminationMoment = tenant.terminationDate
       ? moment(tenant.terminationDate)
@@ -26,9 +28,9 @@ export async function all(req, res) {
   const tenantCount = activeTenants.length;
 
   // count properties
-  const propertyCount = await Collections.Property.find({
-    realmId: req.headers.organizationid
-  }).count();
+  const propertyCount = await propertyRepository.countByRealmId(
+    req.headers.organizationid
+  );
 
   // compute occupancyRate
   let occupancyRate;
@@ -98,7 +100,7 @@ export async function all(req, res) {
             });
             if (currentRent) {
               acc.push({
-                tenant: tenant.toObject(),
+                tenant: tenant,
                 balance:
                   currentRent.total.payment - currentRent.total.grandTotal,
                 rent: currentRent

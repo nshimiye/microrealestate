@@ -2,6 +2,8 @@ import EnvironmentConfig from './environmentconfig.js';
 import logger from './logger.js';
 import redis from 'redis';
 import { RedisClientTypes } from '@microrealestate/types';
+import DynamoDBClient from './dynamodbclient.js';
+import DynamoDBCacheAdapter from './dynamodbcacheadapter.js';
 
 process.on('SIGINT', async () => {
   try {
@@ -24,6 +26,8 @@ export default class RedisClient {
   }
 
   private client: redis.RedisClientType | null = null;
+  private dynamoAdapter: DynamoDBCacheAdapter | null = null;
+  private useDynamoDB: boolean = false;
   private envConfig: EnvironmentConfig;
 
   get: RedisClientTypes.GetFunction = () => Promise.resolve(null);
@@ -34,9 +38,42 @@ export default class RedisClient {
 
   private constructor(envConfig: EnvironmentConfig) {
     this.envConfig = envConfig;
+    const config = this.envConfig.getValues();
+    this.useDynamoDB = config.USE_DYNAMODB === true;
   }
 
   async connect() {
+    if (this.useDynamoDB) {
+      await this.connectDynamoDB();
+    } else {
+      await this.connectRedis();
+    }
+  }
+
+  private async connectDynamoDB() {
+    if(this.dynamoAdapter) {
+      throw new Error('You already have a dynamoAdapter');
+    }
+    console.log('Initializing DynamoDB backend for cache storage...');
+    logger.debug('Initializing DynamoDB backend for cache storage...');
+    
+    // Initialize DynamoDB client
+    const dynamoClient = DynamoDBClient.getInstance();
+    await dynamoClient.connect();
+
+    // Create adapter
+    this.dynamoAdapter = new DynamoDBCacheAdapter(dynamoClient);
+    
+    // Bind adapter methods to public interface
+    this.get = this.dynamoAdapter.get.bind(this.dynamoAdapter);
+    this.set = this.dynamoAdapter.set.bind(this.dynamoAdapter);
+    this.del = this.dynamoAdapter.del.bind(this.dynamoAdapter);
+    this.keys = this.dynamoAdapter.keys.bind(this.dynamoAdapter);
+    
+    logger.debug('DynamoDB backend initialized successfully');
+  }
+
+  private async connectRedis() {
     const config = this.envConfig.getValues();
     const obfuscatedConfig = this.envConfig.getObfuscatedValues();
     logger.debug(`db connecting to ${obfuscatedConfig.REDIS_URL}...`);
@@ -70,10 +107,17 @@ export default class RedisClient {
   }
 
   async disconnect() {
-    if (!this.client) {
-      throw new Error('cannot quit, connection not established');
+    if (this.useDynamoDB) {
+      if (this.dynamoAdapter) {
+        const dynamoClient = DynamoDBClient.getInstance();
+        await dynamoClient.disconnect();
+        this.dynamoAdapter = null;
+      }
+    } else {
+      if (!this.client) {
+        throw new Error('cannot quit, connection not established');
+      }
+      await this.client.quit();
     }
-
-    await this.client.quit();
   }
 }

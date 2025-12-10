@@ -1,8 +1,7 @@
 import * as Express from 'express';
-import { Collections, logger, ServiceError } from '@microrealestate/common';
+import { DataAccess, logger, ServiceError } from '@microrealestate/common';
 import {
   CollectionTypes,
-  MongooseDocument,
   TenantAPI,
   UserServicePrincipal
 } from '@microrealestate/types';
@@ -21,15 +20,8 @@ export async function getOneTenant(
   }
   const tenantId = req.params.tenantId;
 
-  const dbTenant = await Collections.Tenant.findOne<
-    MongooseDocument<CollectionTypes.Tenant>
-  >({
-    _id: tenantId,
-    'contacts.email': { $regex: new RegExp(email, 'i') }
-  }).populate<{
-    realmId: CollectionTypes.Realm;
-    leaseId: CollectionTypes.Lease;
-  }>(['realmId', 'leaseId']);
+  const tenantRepository = DataAccess.getTenantRepository();
+  const dbTenant = await tenantRepository.findOneByContactEmail({tenantId, email});
 
   if (!dbTenant) {
     throw new ServiceError('tenant not found', 404);
@@ -55,16 +47,8 @@ export async function getAllTenants(
     throw new ServiceError('unauthorized', 401);
   }
 
-  // find tenants from mongo which has a given email contact
-  const dbTenants = await Collections.Tenant.find<
-    MongooseDocument<CollectionTypes.Tenant>
-  >({
-    'contacts.email': { $regex: new RegExp(email, 'i') }
-  }).populate<{
-    realmId: CollectionTypes.Realm;
-    leaseId: CollectionTypes.Lease;
-  }>(['realmId', 'leaseId']);
-
+  const tenantRepository = DataAccess.getTenantRepository();
+  const dbTenants = await tenantRepository.findByContactEmail(email);
   // the last term considering the current date
   const lastTerm = Number(moment().format('YYYYMMDDHH'));
 

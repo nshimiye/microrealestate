@@ -26,6 +26,7 @@ export type EnvironmentValues = {
   CORS_ENABLED?: boolean;
   TENANTAPI_URL?: string;
   EMAILER_URL?: string;
+  ENABLE_API_DOCS?: string;
   DATA_DIRECTORY?: string;
   TEMPLATES_DIRECTORY?: string;
   TEMPORARY_DIRECTORY?: string;
@@ -62,4 +63,10 @@ export type EnvironmentValues = {
     replyToEmail: string;
     bccEmails: string;
   };
+  DYNAMODB_TABLE_NAME?: string;
+  DYNAMODB_REGION?: string;
+  DYNAMODB_ENDPOINT?: string;
+  DYNAMODB_ACCESS_KEY_ID?: string;
+  DYNAMODB_SECRET_ACCESS_KEY?: string;
+  USE_DYNAMODB?: boolean;
 };

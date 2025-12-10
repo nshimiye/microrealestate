@@ -1,12 +1,11 @@
 import * as Contract from './contract.js';
 import * as FD from './frontdata.js';
 import {
-  Collections,
+  DataAccess,
   logger,
   Service,
   ServiceError
 } from '@microrealestate/common';
-import axios from 'axios';
 import { customAlphabet } from 'nanoid';
 import moment from 'moment';
 
@@ -51,9 +50,8 @@ function _formatTenant(tenant) {
 }
 
 async function _buildPropertyMap(realm) {
-  const properties = await Collections.Property.find({
-    realmId: realm._id
-  }).lean();
+  const propertyRepository = DataAccess.getPropertyRepository();
+  const properties = await propertyRepository.findAll(realm._id);
 
   return properties.reduce((acc, property) => {
     property._id = String(property._id);
@@ -63,93 +61,12 @@ async function _buildPropertyMap(realm) {
 }
 
 async function _fetchTenants(realmId, tenantId) {
-  const $match = {
-    realmId
-  };
-  if (tenantId) {
-    $match._id = Collections.ObjectId(tenantId);
-  }
+  const tenantRepository = DataAccess.getTenantRepository();
+  
+  // Use repository method instead of direct aggregation
+  const tenants = await tenantRepository.findWithAggregation(realmId, tenantId);
 
-  const tenants = await Collections.Tenant.aggregate([
-    { $match },
-    {
-      $lookup: {
-        from: 'templates',
-        let: {
-          tenant_realmId: '$realmId',
-          tenant_tenantId: { $toString: '$_id' },
-          tenant_leaseId: '$leaseId'
-        },
-        pipeline: [
-          {
-            $match: {
-              $expr: {
-                $and: [
-                  { $eq: ['$realmId', '$$tenant_realmId'] },
-                  { $in: ['$$tenant_leaseId', '$linkedResourceIds'] },
-                  { $eq: ['$type', 'fileDescriptor'] }
-                ]
-              }
-            }
-          },
-          {
-            $lookup: {
-              from: 'documents',
-              let: { template_templateId: { $toString: '$_id' } },
-              pipeline: [
-                {
-                  $match: {
-                    $expr: {
-                      $and: [
-                        { $eq: ['$realmId', '$$tenant_realmId'] },
-                        { $eq: ['$tenantId', '$$tenant_tenantId'] },
-                        { $eq: ['$leaseId', '$$tenant_leaseId'] },
-                        { $eq: ['$type', 'file'] },
-                        { $eq: ['$templateId', '$$template_templateId'] }
-                      ]
-                    }
-                  }
-                },
-                {
-                  $project: {
-                    realmId: 0,
-                    leaseId: 0,
-                    tenantId: 0,
-                    type: 0,
-                    mimeType: 0,
-                    templateId: 0,
-                    url: 0
-                  }
-                }
-              ],
-              as: 'documents'
-            }
-          },
-          {
-            $project: {
-              realmId: 0,
-              linkedResourceIds: 0,
-              type: 0,
-              hasExpiryDate: 0
-            }
-          }
-        ],
-        as: 'filesToUpload'
-      }
-    },
-    { $sort: { name: 1 } }
-  ]);
-
-  await Collections.Tenant.populate(tenants, [
-    {
-      path: 'leaseId'
-    },
-    {
-      path: 'properties.propertyId'
-    }
-  ]);
-
-  // TODO: compute the missing doc property in mongodb
+  // Compute the missing document flags (business logic remains in occupant manager)
   const now = moment();
   tenants.forEach((tenant) =>
     tenant.filesToUpload?.forEach((fileToUpload) => {
@@ -223,7 +140,9 @@ export async function add(req, res) {
     throw new ServiceError(error, 409);
   }
 
-  const newOccupant = await Collections.Tenant.create({
+  // Use repository instead of direct Mongoose model
+  const tenantRepository = DataAccess.getTenantRepository();
+  const newOccupant = await tenantRepository.create({
     ...occupant,
     realmId: realm._id
   });
@@ -242,10 +161,12 @@ export async function update(req, res) {
     throw new ServiceError('missing fields', 422);
   }
 
-  const originalOccupant = await Collections.Tenant.findOne({
-    _id: occupantId,
+  // Use repository instead of direct Mongoose model
+  const tenantRepository = DataAccess.getTenantRepository();
+  const originalOccupant = await tenantRepository.findOne({
+    tenantId: occupantId,
     realmId: realm._id
-  }).lean();
+  });
 
   if (!originalOccupant) {
     throw new ServiceError('tenant not found', 404);
@@ -335,15 +256,10 @@ export async function update(req, res) {
     newOccupant.rents = [];
   }
 
-  await Collections.Tenant.updateOne(
-    {
-      realmId: realm._id,
-      _id: occupantId
-    },
-    newOccupant
-  );
+  // Use repository instead of direct Mongoose model
+  await tenantRepository.update(occupantId, realm._id, newOccupant);
 
-  const newOccupants = await _fetchTenants(req.realm._id, newOccupant._id);
+  const newOccupants = await _fetchTenants(req.realm._id, occupantId);
   res.json(FD.toOccupantData(newOccupants.length ? newOccupants[0] : null));
 }
 
@@ -355,15 +271,15 @@ export async function remove(req, res) {
     throw new ServiceError('tenant not found', 404);
   }
 
-  const occupants = await Collections.Tenant.find({
-    realmId: realm._id,
-    _id: { $in: occupantIds }
-  });
+  // Use repository instead of direct Mongoose model
+  const tenantRepository = DataAccess.getTenantRepository();
+  const occupants = await tenantRepository.findByIds(occupantIds, realm._id);
 
   if (!occupants.length) {
     throw new ServiceError('tenant not found', 404);
   }
 
+  // Keep validation logic for paid rents
   const occupantsWithPaidRents = occupants.filter((occupant) => {
     return occupant.rents.some(
       (rent) =>
@@ -380,50 +296,23 @@ export async function remove(req, res) {
     );
   }
 
-  const session = await Collections.startSession();
-  session.startTransaction();
+  // Use SessionManager for transaction management
   try {
-    // remove documents
-    const documents = await Collections.Document.find(
-      {
-        realmId: realm._id,
-        tenantId: { $in: occupantIds }
-      },
-      {
-        _id: 1
-      }
-    );
-
     const { PDFGENERATOR_URL } = Service.getInstance().envConfig.getValues();
-    const documentsEndPoint = `${PDFGENERATOR_URL}/documents/${documents
-      .map(({ _id }) => _id)
-      .join(',')}`;
-    try {
-      await axios.delete(documentsEndPoint, {
-        headers: {
-          authorization: req.headers.authorization,
-          organizationid: req.headers.organizationid || String(req.realm._id),
-          'Accept-Language': req.headers['accept-language']
-        }
-      });
-    } catch (error) {
-      const errorMessage = error.response?.data?.message || error.message;
-      logger.error('DELETE documents failed');
-      logger.error(errorMessage);
-    }
-
-    // remove tenants in db
-    await Collections.Tenant.deleteMany({
-      realmId: realm._id,
-      _id: { $in: occupantIds }
-    });
-    await session.commitTransaction();
+    const sessionTasks = DataAccess.getSessionTasks();
+    await sessionTasks.deleteManyTenants(occupantIds, {
+      realm,
+      PDFGENERATOR_URL,
+      pdfHeaders: {
+                    authorization: req.headers.authorization,
+                    organizationid: req.headers.organizationid || String(realm._id),
+                    'Accept-Language': req.headers['accept-language']
+                  }
+    })
   } catch (error) {
-    await session.abortTransaction();
     throw new ServiceError(error, 500);
-  } finally {
-    session.endSession();
   }
+  
   res.sendStatus(200);
 }
 
@@ -435,16 +324,16 @@ export async function all(req, res) {
 export async function one(req, res) {
   const occupantId = req.params.id;
   const tenants = await _fetchTenants(req.realm._id, occupantId);
-  res.json(FD.toOccupantData(tenants.length ? tenants[0] : null));
+  res.json(tenants.length ? FD.toOccupantData(tenants[0]) : null);
 }
 
 export async function overview(req, res) {
   const realm = req.realm;
   const currentDate = moment();
 
-  const occupants = await Collections.Tenant.find({
-    realmId: realm._id
-  }).lean();
+  // Use repository instead of direct Mongoose model
+  const tenantRepository = DataAccess.getTenantRepository();
+  const occupants = await tenantRepository.findAll(realm._id);
 
   let result = {
     countAll: occupants?.length || 0,

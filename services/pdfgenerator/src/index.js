@@ -4,6 +4,7 @@ import { fileURLToPath } from 'url';
 import locale from 'locale';
 import path from 'path';
 import routes from './routes/index.js';
+import { swaggerSpec } from './openapi.js';
 
 Main();
 
@@ -13,6 +14,12 @@ async function onStartUp(express) {
 
   // parse locale
   express.use(locale(['fr-FR', 'en-US', 'pt-BR', 'de-DE', 'es-CO'], 'en-US'));
+
+  // Expose OpenAPI specification
+  express.get('/openapi.json', (req, res) => {
+    res.setHeader('Content-Type', 'application/json');
+    res.send(swaggerSpec);
+  });
 
   // api
   express.use(routes());
@@ -51,6 +58,7 @@ async function Main() {
     await service.init({
       name: 'PdfGenerator',
       useMongo: true,
+      useDynamo: true, // TODO use env variable
       onStartUp,
       onShutDown
     });

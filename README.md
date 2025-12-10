@@ -121,6 +121,54 @@ Where mredb-XXXX.dump is the archive file you selected.
 Again, replace "mredb" with the name of your database (see .env file). By default, the database name is "mredb".
 
 
+## API Documentation
+
+MicroRealEstate provides comprehensive API documentation through an interactive Swagger UI interface. This allows developers to explore, understand, and test API endpoints without requiring the frontend applications.
+
+### Accessing API Documentation
+
+The API documentation is available at `/api-docs` when the application is running.
+
+**For localhost setup:**
+```
+http://localhost:8080/api-docs
+```
+
+**For IP setup:**
+```
+http://x.x.x.x/api-docs
+```
+
+**For domain setup:**
+```
+https://app.example.com/api-docs
+```
+
+### Features
+
+- **Interactive Interface**: Test API endpoints directly from the documentation using the "Try it out" feature
+- **Complete Coverage**: Documentation includes all endpoints from all backend services (API, TenantAPI, Authenticator, PDFGenerator, Emailer)
+- **Authentication Support**: Learn how to obtain and use JWT tokens for authenticated requests
+- **Request/Response Examples**: View example payloads and responses for each endpoint
+- **Schema Documentation**: Explore data models and their properties
+
+### Authentication
+
+Most API endpoints require authentication using JWT Bearer tokens:
+
+1. **Obtain an access token**: Send a POST request to `/api/v2/authenticator/signin` with your email and password
+2. **Use the token**: Click the "Authorize" button (🔓) in the Swagger UI and enter your access token
+3. **Test endpoints**: Use the "Try it out" feature to make authenticated requests
+
+### Enabling/Disabling Documentation
+
+API documentation can be controlled via the `ENABLE_API_DOCS` environment variable:
+
+- **Development**: Enabled by default (`ENABLE_API_DOCS=true` in `base.env`)
+- **Production**: Disabled by default (`ENABLE_API_DOCS=false` in `docker-compose.yml`)
+
+To disable documentation in development, set `ENABLE_API_DOCS=false` in your `.env` file.
+
 ## Developers
 
 To run the application in development mode, follow the steps outlined in the documentation available [here](./documentation/DEVELOPER.md)

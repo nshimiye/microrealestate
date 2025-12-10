@@ -1,7 +1,7 @@
 import * as Contract from './contract.js';
 import * as FD from './frontdata.js';
 import {
-  Collections,
+  DataAccess,
   logger,
   Service,
   ServiceError
@@ -10,27 +10,27 @@ import axios from 'axios';
 import moment from 'moment';
 
 async function _findOccupants(realm, tenantId, startTerm, endTerm) {
+  const tenantRepository = DataAccess.getTenantRepository();
+  
+  // Build simplified filter object
   const filter = {
-    $query: {
-      $and: [{ realmId: realm._id }]
-    }
+    realmId: String(realm._id)
   };
+  
   if (tenantId) {
-    filter['$query']['$and'].push({ _id: tenantId });
+    filter.tenantId = tenantId;
   }
+  
   if (startTerm && endTerm) {
-    filter['$query']['$and'].push({ 'rents.term': { $gte: startTerm } });
-    filter['$query']['$and'].push({ 'rents.term': { $lte: endTerm } });
+    filter.startTerm = startTerm;
+    filter.endTerm = endTerm;
   } else if (startTerm) {
-    filter['$query']['$and'].push({ 'rents.term': startTerm });
+    filter.startTerm = startTerm;
   }
 
-  const dbTenants = await Collections.Tenant.find(filter.$query)
-    .sort({
-      name: 1
-    })
-    .lean();
+  const dbTenants = await tenantRepository.find(filter, { sort: { name: 'asc' } });
 
+  // Keep post-query filtering of tenant.rents arrays and _id string conversion
   return dbTenants.map((tenant) => {
     tenant._id = String(tenant._id);
     if (startTerm && endTerm) {
@@ -188,21 +188,26 @@ async function _updateByTerm(
   term,
   paymentData
 ) {
-  if (!paymentData.promo && paymentData.promo <= 0) {
+  // Get tenantRepository instance
+  const tenantRepository = DataAccess.getTenantRepository();
+
+  // Keep promo/extracharge normalization logic
+  if (!paymentData.promo || paymentData.promo <= 0) {
     paymentData.promo = 0;
     paymentData.notepromo = null;
   }
 
-  if (!paymentData.extracharge && paymentData.extracharge <= 0) {
+  if (!paymentData.extracharge || paymentData.extracharge <= 0) {
     paymentData.extracharge = 0;
     paymentData.noteextracharge = null;
   }
 
-  const occupant = await Collections.Tenant.findOne({
-    _id: paymentData._id,
-    realmId: realm._id
-  }).lean();
+  const occupant = await tenantRepository.findOne({
+    tenantId: paymentData._id,
+    realmId: String(realm._id)
+  });
 
+  // Keep contract building logic
   const contract = {
     frequency: occupant.frequency || 'months',
     begin: occupant.beginDate,
@@ -213,6 +218,7 @@ async function _updateByTerm(
     rents: occupant.rents
   };
 
+  // Keep settlements building logic
   const settlements = {
     payments: [],
     debts: [],
@@ -257,8 +263,10 @@ async function _updateByTerm(
     }
   }
 
+  // Keep Contract.payTerm call
   occupant.rents = Contract.payTerm(contract, term, settlements).rents;
 
+  // Keep email status fetching
   const emailStatus =
     (await _getEmailStatus(
       authorizationHeader,
@@ -267,15 +275,16 @@ async function _updateByTerm(
       Number(term)
     ).catch(logger.error)) || {};
 
-  const savedOccupant = await Collections.Tenant.findOneAndUpdate(
+  const savedOccupant = await tenantRepository.findOneAndUpdate(
     {
-      _id: occupant._id,
-      realmId: realm._id
+      tenantId: String(occupant._id),
+      realmId: String(realm._id)
     },
     occupant,
-    { new: true }
-  ).lean();
+    { returnUpdated: true }
+  );
 
+  // Keep rent filtering and FD.toRentData transformation
   const rent = savedOccupant.rents.filter(
     (rent) => rent.term === Number(term)
   )[0];

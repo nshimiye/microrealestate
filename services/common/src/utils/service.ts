@@ -6,12 +6,12 @@ import {
 } from '@microrealestate/types';
 import _cookieParser from 'cookie-parser';
 import _methodOverride from 'method-override';
+import DynamoDBClient from './dynamodbclient.js';
 import EnvironmentConfig from './environmentconfig.js';
 import Express from 'express';
 import expressWinston from 'express-winston';
 import httpInterceptors from './httpinterceptors.js';
 import jwt from 'jsonwebtoken';
-import { Middlewares } from '../index.js';
 import MongoClient from './mongoclient.js';
 import mongoSanitize from 'express-mongo-sanitize';
 import RedisClient from './redisclient.js';
@@ -43,6 +43,7 @@ export default class Service {
   port?: number;
   useMongo?: boolean;
   useRedis?: boolean;
+  useDynamo?: boolean;
   useAxios?: boolean;
   useRequestParsers?: boolean;
   exposeHealthCheck?: boolean;
@@ -51,6 +52,7 @@ export default class Service {
 
   mongoClient?: MongoClient;
   redisClient?: RedisClient;
+  dynamoClient?: DynamoDBClient;
 
   envConfig: EnvironmentConfig;
   expressServer: Express.Application;
@@ -64,6 +66,7 @@ export default class Service {
     name,
     useMongo,
     useRedis,
+    useDynamo,
     useAxios,
     useRequestParsers = true,
     exposeHealthCheck = true,
@@ -79,6 +82,7 @@ export default class Service {
     this.onShutDown = onShutDown;
     this.useMongo = useMongo;
     this.useRedis = useRedis;
+    this.useDynamo = useDynamo;
 
     if (useMongo) {
       this.mongoClient = MongoClient.getInstance(this.envConfig);
@@ -86,6 +90,10 @@ export default class Service {
 
     if (useRedis) {
       this.redisClient = RedisClient.getInstance(this.envConfig);
+    }
+
+    if (useDynamo) {
+      this.dynamoClient = DynamoDBClient.getInstance(this.envConfig);
     }
 
     if (this.useAxios) {
@@ -138,6 +146,13 @@ export default class Service {
               Logger.default.error(String(error));
             }
           }
+          if (this.dynamoClient) {
+            try {
+              await this.dynamoClient.disconnect();
+            } catch (error) {
+              Logger.default.error(String(error));
+            }
+          }
           if (this.redisClient) {
             try {
               await this.redisClient.disconnect();
@@ -156,6 +171,9 @@ export default class Service {
     if (this.mongoClient) {
       await this.mongoClient.connect();
     }
+    if (this.dynamoClient) {
+      await this.dynamoClient.connect();
+    }
     if (this.redisClient) {
       await this.redisClient.connect();
       // await this.redisClient.monitor();
@@ -170,7 +188,7 @@ export default class Service {
     await this.onStartUp?.(this.expressServer);
 
     // add error middleware
-    this.expressServer.use(Middlewares.errorHandler);
+    // this.expressServer.use(Middlewares.errorHandler);
     await this.startService();
   }
 
@@ -178,6 +196,13 @@ export default class Service {
     if (this.mongoClient) {
       try {
         await this.mongoClient.disconnect();
+      } catch (error) {
+        Logger.default.error(String(error));
+      }
+    }
+    if (this.dynamoClient) {
+      try {
+        await this.dynamoClient.disconnect();
       } catch (error) {
         Logger.default.error(String(error));
       }

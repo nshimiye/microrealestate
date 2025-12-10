@@ -2,18 +2,16 @@ import * as Express from 'express';
 import * as JWT from 'jsonwebtoken';
 import {
   ApplicationServicePrincipal,
-  CollectionTypes,
   ConnectionRole,
   ConnectionType,
   InternalServicePrincipal,
-  MongooseDocument,
   ServiceRequest,
   ServiceResponse,
   UserServicePrincipal
 } from '@microrealestate/types';
 import logger from './logger.js';
-import Realm from '../collections/realm.js';
 import ServiceError from './serviceerror.js';
+import { getRealmRepository } from '../data-access-layer/index.js';
 
 type ErrorBodyType = {
   status: number;
@@ -118,6 +116,7 @@ export function needAccessToken(
         return res.sendStatus(401);
       }
     } catch (error) {
+      
       logger.warn(String(error));
       return res.sendStatus(401);
     }
@@ -140,29 +139,17 @@ export function checkOrganization() {
       return next();
     }
 
+    const realmRepository = getRealmRepository();
     switch (req.user.type) {
       case 'user':
         // for the current user, add all subscribed organizations in request object
-        req.realms = (
-          await Realm.find<MongooseDocument<CollectionTypes.Realm>>({
-            members: { $elemMatch: { email: req.user.email } }
-          })
-        )
-          .map((realm) => realm.toObject())
-          .map((realm) => {
-            realm._id = String(realm._id);
-            return realm;
-          });
+          req.realms = await realmRepository.findManyByEmail(req.user.email);
         break;
       case 'application': {
         // for the current application access, add only the associated realm
-        const realm = (
-          await Realm.findOne<MongooseDocument<CollectionTypes.Realm>>({
-            applications: { $elemMatch: { clientId: req.user.clientId } }
-          })
-        )?.toObject();
+        const realm = await realmRepository.findByClientId(req.user.clientId);
+
         if (realm) {
-          realm._id = String(realm._id);
           req.realms = [realm];
         } else {
           req.realms = [];
@@ -171,13 +158,9 @@ export function checkOrganization() {
       }
       case 'service': {
         // for the current service access, add only the associated realm
-        const realm = (
-          await Realm.findOne<MongooseDocument<CollectionTypes.Realm>>({
-            _id: req.user.realmId
-          })
-        )?.toObject();
+        const realm = await realmRepository.findById(req.user.realmId);
+
         if (realm) {
-          realm._id = String(realm._id);
           req.realms = [realm];
         } else {
           req.realms = [];
@@ -206,19 +189,13 @@ export function checkOrganization() {
     }
 
     // add organization in request object
-    req.realm = (
-      await Realm.findOne<MongooseDocument<CollectionTypes.Realm>>({
-        _id: organizationId
-      })
-    )?.toObject();
+    req.realm = await realmRepository.findById(organizationId as string);
 
     if (!req.realm) {
       // send 404 if req.realm is not set
       logger.warn('impossible to set organizationId in request');
       return res.sendStatus(404);
     }
-
-    req.realm._id = String(req.realm._id);
 
     // current user is not a member of the organization
     if (!req.realms.find(({ _id }) => _id === req.realm?._id)) {

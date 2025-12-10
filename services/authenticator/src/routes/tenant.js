@@ -1,5 +1,5 @@
 import {
-  Collections,
+  DataAccess,
   logger,
   Middlewares,
   Service,
@@ -37,9 +37,8 @@ export default function () {
         throw new ServiceError('unsupported email', 422);
       }
 
-      const tenants = await Collections.Tenant.find({
-        'contacts.email': email
-      });
+      const tenantRepository = DataAccess.getTenantRepository();
+      const tenants = await tenantRepository.findByContactEmail(email);
       if (!tenants.length) {
         logger.info(`login failed for ${email} tenant not found`);
         return res.sendStatus(204);
@@ -98,6 +97,7 @@ export default function () {
   tenantRouter.get(
     '/signedin',
     Middlewares.asyncWrapper(async (req, res) => {
+      console.log('1111');
       const { otp } = req.query;
       if (!otp) {
         throw new ServiceError('invalid otp', 401);
@@ -110,7 +110,10 @@ export default function () {
           401
         );
       }
+      console.log('22222');
+      
       await Service.getInstance().redisClient.del(otp);
+      console.log('3333');
 
       const payload = rawPayload.split(';').reduce((acc, rawValue) => {
         const [key, value] = rawValue.split('=');
@@ -140,6 +143,8 @@ export default function () {
   tenantRouter.get(
     '/session',
     Middlewares.asyncWrapper(async (req, res) => {
+      console.log('1111');
+
       const sessionToken = req.cookies.sessionToken;
       if (!sessionToken) {
         throw new ServiceError('invalid token', 401);
