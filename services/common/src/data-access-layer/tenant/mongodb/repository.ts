@@ -1,4 +1,4 @@
-import { CollectionTypes } from '@microrealestate/types';
+import { CollectionTypes, MongooseDocument } from '@microrealestate/types';
 import { ObjectId } from '../../../collections/index.js';
 import TenantModel from '../../../collections/tenant.js';
 import { ITenantRepository } from '../interface.js';
@@ -27,8 +27,25 @@ export default class MongoRepository implements ITenantRepository {
     }
 
     const tenants = await TenantModel.find({
-      'contacts.email': email
+      'contacts.email': email // TODO sanitize email since it might be a direct input from the client
     }).lean();
+
+    return tenants as CollectionTypes.Tenant[];
+  }
+  async findAggregatedByContactEmail(email: string): Promise<CollectionTypes.Tenant[]> {
+    if (!email || typeof email !== 'string') {
+      throw new Error('Email must be a non-empty string');
+    }
+  // find tenants from mongo which has a given email contact
+  const tenants = await TenantModel.find<
+    MongooseDocument<CollectionTypes.Tenant>
+  >({
+    'contacts.email': { $regex: new RegExp(email, 'i') } // ?? TODO should we sanitize
+  }).populate<{
+    realmId: CollectionTypes.Realm;
+    leaseId: CollectionTypes.Lease;
+  }>(['realmId', 'leaseId']).lean();
+
 
     return tenants as CollectionTypes.Tenant[];
   }
@@ -95,6 +112,23 @@ export default class MongoRepository implements ITenantRepository {
       _id: filter.tenantId,
       realmId: filter.realmId
     }).lean();
+
+    return tenant as CollectionTypes.Tenant | null;
+  }
+
+  async findOneByContactEmail(filter: {
+    tenantId: string;
+    email: string;
+  }): Promise<CollectionTypes.Tenant | null> {
+      const tenant = await TenantModel.findOne<
+    MongooseDocument<CollectionTypes.Tenant>
+  >({
+    _id: filter.tenantId,
+    'contacts.email': { $regex: new RegExp(filter.email, 'i') }
+  }).populate<{
+    realmId: CollectionTypes.Realm;
+    leaseId: CollectionTypes.Lease;
+  }>(['realmId', 'leaseId']).lean();
 
     return tenant as CollectionTypes.Tenant | null;
   }

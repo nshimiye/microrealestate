@@ -33,6 +33,14 @@ export interface ITenantRepository {
   findByContactEmail(email: string): Promise<CollectionTypes.Tenant[]>;
 
   /**
+   * Find tenants by contact email including other related entities
+   * included entities
+   * - Realm
+   * - Lease
+   */
+  findAggregatedByContactEmail(email: string): Promise<CollectionTypes.Tenant[]>;
+  
+  /**
    * Find a tenant by ID
    */
   findById(id: string): Promise<CollectionTypes.Tenant | null>;
@@ -56,6 +64,17 @@ export interface ITenantRepository {
   findOne(filter: {
     tenantId: string;
     realmId: string;
+  }): Promise<CollectionTypes.Tenant | null>;
+
+  /**
+   * Find a single tenant by ID and contact email
+   * included entities in the response
+   * - Realm
+   * - Lease
+   */
+  findOneByContactEmail(filter: {
+      tenantId: string;
+      email: string;
   }): Promise<CollectionTypes.Tenant | null>;
 
   /**

@@ -11,6 +11,12 @@ export default class TenantRepository
   extends TenantBaseRepository
   implements ITenantRepository
 {
+  findAggregatedByContactEmail(email: string): Promise<CollectionTypes.Tenant[]> {
+    throw new Error('Method not implemented.');
+  }
+  findOneByContactEmail(filter: { tenantId: string; email: string; }): Promise<CollectionTypes.Tenant | null> {
+    throw new Error('Method not implemented.');
+  }
   /**
    * Find a tenant by ID
    * Note: Unlike other entities, this method does NOT require realmId parameter

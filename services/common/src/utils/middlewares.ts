@@ -158,12 +158,6 @@ export function checkOrganization() {
       }
       case 'service': {
         // for the current service access, add only the associated realm
-        // const realm = (
-        //   await Realm.findOne<MongooseDocument<CollectionTypes.Realm>>({
-        //     _id: req.user.realmId
-        //   })
-        // )?.toObject();
-        // realm._id = String(realm._id);
         const realm = await realmRepository.findById(req.user.realmId);
 
         if (realm) {
@@ -195,11 +189,6 @@ export function checkOrganization() {
     }
 
     // add organization in request object
-    // req.realm = (
-    //   await Realm.findOne<MongooseDocument<CollectionTypes.Realm>>({
-    //     _id: organizationId
-    //   })
-    // )?.toObject();
     req.realm = await realmRepository.findById(organizationId as string);
 
     if (!req.realm) {
